@@ -1,20 +1,22 @@
 package main
 
 import (
-	"fmt"
-	"strings"
+	"log"
+	"os"
 
 	"github.com/uc-cdis/indexs3client/handlers"
 )
 
 func main() {
-	input := "hello world"
+	argsWithProg := os.Args
 
-	fmt.Println("Input:", input)
+	if len(argsWithProg) < 3 {
+		log.Panicf("Required 3 parameters. Only %d provide", len(argsWithProg))
+	}
 
-	r := strings.NewReader(input)
+	s3object := argsWithProg[1]
+	indexURL := argsWithProg[2]
 
-	hashes := handlers.CalculateBasicHashes(r)
+	handlers.IndexS3Object(s3object, indexURL)
 
-	fmt.Print(input, ",", hashes.Crc32c, ",", hashes.Md5, ",", hashes.Sha1, ",", hashes.Sha256, ",", hashes.Sha512, "\n")
 }

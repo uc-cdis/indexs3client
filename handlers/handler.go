@@ -2,10 +2,15 @@ package handlers
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 )
 
-func IndexS3Object(bucket string, key string) error {
+func IndexS3Object(s3object string, indexURL string) error {
+
+	u, _ := url.Parse(s3object)
+	bucket, key := u.Host, u.Path
+
 	client, err := CreateNewAwsClient()
 	if err != nil {
 		return err
