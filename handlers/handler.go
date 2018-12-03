@@ -54,7 +54,8 @@ func IndexS3Object(s3objectURL string) {
 		log.Println(err)
 	}
 
-	body := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s"}}`, len(buff), s3objectURL, hashes.Md5)
+	body := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
+		len(buff), s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
 	resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo.URL, indexdInfo.Username, indexdInfo.Password, []byte(body))
 	if err != nil {
 		log.Println(err)

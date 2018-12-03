@@ -8,6 +8,6 @@ import (
 
 func main() {
 
-	handlers.IndexS3Object(os.Getenv("INPUT_URL"), os.Getenv("INDEXD_URL"))
+	handlers.IndexS3Object(os.Getenv("INPUT_URL"))
 
 }
