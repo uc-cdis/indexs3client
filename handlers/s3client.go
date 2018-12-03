@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -15,7 +14,7 @@ type AwsClient struct {
 	session *session.Session
 }
 
-// createNewSession creats a aws s3 session
+// CreateNewSession creats a aws s3 session
 func CreateNewAwsClient() (*AwsClient, error) {
 	client := new(AwsClient)
 
@@ -33,6 +32,7 @@ func CreateNewAwsClient() (*AwsClient, error) {
 	return client, nil
 }
 
+// StreamObjectFromS3 downloads object from s3
 func StreamObjectFromS3(client *AwsClient, bucket string, key string) ([]byte, error) {
 	buff := &aws.WriteAtBuffer{}
 	s3dl := s3manager.NewDownloader(client.session)
@@ -42,7 +42,6 @@ func StreamObjectFromS3(client *AwsClient, bucket string, key string) ([]byte, e
 	})
 
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
 		return nil, err
 	}
 	return buff.Bytes(), nil

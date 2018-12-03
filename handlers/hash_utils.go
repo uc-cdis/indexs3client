@@ -19,6 +19,7 @@ type HashInfo struct {
 	Sha512 string
 }
 
+// CalculateBasicHashes generates hases
 func CalculateBasicHashes(rd io.Reader) HashInfo {
 	crc32c := crc32.New(crc32.MakeTable(crc32.Castagnoli))
 	md5 := md5.New()
