@@ -6,9 +6,9 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"fmt"
 	"hash/crc32"
 	"io"
+	"sync"
 )
 
 type HashInfo struct {
@@ -20,29 +20,27 @@ type HashInfo struct {
 }
 
 // CalculateBasicHashes generates hases
-func CalculateBasicHashes(rd io.Reader) HashInfo {
+func CalculateBasicHashes(rd io.Reader) (*HashInfo, error) {
 	crc32c := crc32.New(crc32.MakeTable(crc32.Castagnoli))
 	md5 := md5.New()
 	sha1 := sha1.New()
 	sha256 := sha256.New()
 	sha512 := sha512.New()
 
-	multiWriter := MultiCWriter(crc32c, md5, sha1, sha256, sha512)
+	multiWriter := NewMultiCWriter(crc32c, md5, sha1, sha256, sha512)
 
-	_, err := io.Copy(multiWriter, rd)
-	if err != nil {
-		fmt.Println(err.Error())
+	if _, err := io.Copy(multiWriter, rd); err != nil {
+		return nil, err
 	}
 
-	var info HashInfo
+	return &HashInfo{
+		Crc32c: hex.EncodeToString(crc32c.Sum(nil)),
+		Md5:    hex.EncodeToString(md5.Sum(nil)),
+		Sha1:   hex.EncodeToString(sha1.Sum(nil)),
+		Sha256: hex.EncodeToString(sha256.Sum(nil)),
+		Sha512: hex.EncodeToString(sha512.Sum(nil)),
+	}, nil
 
-	info.Crc32c = hex.EncodeToString(crc32c.Sum(nil))
-	info.Md5 = hex.EncodeToString(md5.Sum(nil))
-	info.Sha1 = hex.EncodeToString(sha1.Sum(nil))
-	info.Sha256 = hex.EncodeToString(sha256.Sum(nil))
-	info.Sha512 = hex.EncodeToString(sha512.Sum(nil))
-
-	return info
 }
 
 type multiCWriter struct {
@@ -55,35 +53,32 @@ func (t *multiCWriter) Write(p []byte) (n int, err error) {
 		err error
 	}
 
-	results := make(chan data)
+	results := make([]data, len(t.writers))
 
-	for _, w := range t.writers {
-		go func(wr io.Writer, p []byte, ch chan data) {
-			n, err = wr.Write(p)
-			if err != nil {
-				ch <- data{n, err}
-				return
+	var wg sync.WaitGroup
+	for idx, w := range t.writers {
+		wg.Add(1)
+		go func(wr io.Writer, p []byte, res *data) {
+			defer wg.Done()
+			res.n, res.err = wr.Write(p)
+			if res.n != len(p) {
+				res.err = io.ErrShortWrite
 			}
-			if n != len(p) {
-				ch <- data{n, io.ErrShortWrite}
-				return
-			}
-			ch <- data{n, nil} //completed ok
-		}(w, p, results)
+		}(w, p, &results[idx])
 	}
-
-	for range t.writers {
-		d := <-results
-		if d.err != nil {
-			return d.n, d.err
+	wg.Wait()
+	for idx := range t.writers {
+		if results[idx].err != nil {
+			return results[idx].n, results[idx].err
 		}
 	}
+
 	return len(p), nil
 }
 
 // MultiWriter creates a writer that duplicates its writes to all the
 // provided writers, similar to the Unix tee(1) command.
-func MultiCWriter(writers ...io.Writer) io.Writer {
+func NewMultiCWriter(writers ...io.Writer) io.Writer {
 	w := make([]io.Writer, len(writers))
 	copy(w, writers)
 	return &multiCWriter{w}

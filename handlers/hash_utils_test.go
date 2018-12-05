@@ -11,7 +11,7 @@ func TestHash(t *testing.T) {
 	input := "This is a test"
 	r := strings.NewReader(input)
 
-	hashInfo := CalculateBasicHashes(r)
+	hashInfo, _ := CalculateBasicHashes(r)
 	assert.Equal(t, hashInfo.Md5, "ce114e4501d2f4e2dcea3e17b546f339")
 	assert.Equal(t, hashInfo.Crc32c, "d8ad940d")
 	assert.Equal(t, hashInfo.Sha1, "a54d88e06612d820bc3be72877c74f257b561b19")

@@ -21,7 +21,7 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 
 	fmt.Println("response Status:", resp.Status)
 	if resp.StatusCode != 200 {
-		return "", errors.New("Can not get record rev")
+		return "", errors.New(fmt.Sprintf("Can not get record rev of %s. IndexURL %s", uuid, indexURL))
 	}
 
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -38,14 +38,13 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 func UpdateIndexdRecord(uuid, rev, indexURL, username, password string, body []byte) (*http.Response, error) {
 	endpoint := indexURL + "/blank/" + uuid + "?rev=" + rev
 	req, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.SetBasicAuth(username, password)
 
 	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, err
+	return client.Do(req)
 }

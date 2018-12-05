@@ -19,8 +19,8 @@ type IndexdInfo struct {
 
 func getIndexServiceInfo() (*IndexdInfo, error) {
 	indexdInfo := new(IndexdInfo)
-	if err := json.Unmarshal([]byte(os.Getenv("IMAGE_CONFIG")), indexdInfo); err != nil {
-		return nil, errors.New("Enviroiment variable IMAGE_CONFIG is not set correctly")
+	if err := json.Unmarshal([]byte(os.Getenv("CONFIG_FILE")), indexdInfo); err != nil {
+		return nil, errors.New("Enviroiment variable CONFIG_FILE is not set correctly")
 	}
 	return indexdInfo, nil
 }
@@ -30,7 +30,11 @@ func getIndexServiceInfo() (*IndexdInfo, error) {
 // S3, computes size and hashes, and update indexd
 func IndexS3Object(s3objectURL string) {
 
-	u, _ := url.Parse(s3objectURL)
+	u, err := url.Parse(s3objectURL)
+	if err != nil {
+		log.Printf("Wrong url format %s\n\n", s3objectURL)
+		return
+	}
 	bucket, key := u.Host, u.Path
 	uuid := strings.Split(key, "/")[0]
 
@@ -46,7 +50,11 @@ func IndexS3Object(s3objectURL string) {
 		return
 	}
 
-	hashes := CalculateBasicHashes(bytes.NewReader(buff))
+	hashes, err := CalculateBasicHashes(bytes.NewReader(buff))
+	if err != nil {
+		log.Printf("Can not compute hashes. Detail %s\n\n", err)
+		return
+	}
 
 	indexdInfo, _ := getIndexServiceInfo()
 	rev, err := GetIndexdRecordRev(uuid, indexdInfo.URL)

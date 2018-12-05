@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
+// AWS sesssion wrapper
 type AwsClient struct {
 	session *session.Session
 }
