@@ -27,7 +27,7 @@ func CalculateBasicHashes(rd io.Reader) (*HashInfo, error) {
 	sha256 := sha256.New()
 	sha512 := sha512.New()
 
-	multiWriter := NewMultiCWriter(crc32c, md5, sha1, sha256, sha512)
+	multiWriter := io.MultiWriter(crc32c, md5, sha1, sha256, sha512)
 
 	if _, err := io.Copy(multiWriter, rd); err != nil {
 		return nil, err
@@ -74,12 +74,4 @@ func (t *multiCWriter) Write(p []byte) (n int, err error) {
 	}
 
 	return len(p), nil
-}
-
-// MultiWriter creates a writer that duplicates its writes to all the
-// provided writers, similar to the Unix tee(1) command.
-func NewMultiCWriter(writers ...io.Writer) io.Writer {
-	w := make([]io.Writer, len(writers))
-	copy(w, writers)
-	return &multiCWriter{w}
 }

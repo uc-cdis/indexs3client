@@ -32,7 +32,7 @@ func IndexS3Object(s3objectURL string) {
 
 	u, err := url.Parse(s3objectURL)
 	if err != nil {
-		log.Printf("Wrong url format %s\n\n", s3objectURL)
+		log.Printf("Wrong url format %s\n", s3objectURL)
 		return
 	}
 	bucket, key := u.Host, u.Path
@@ -60,11 +60,12 @@ func IndexS3Object(s3objectURL string) {
 	rev, err := GetIndexdRecordRev(uuid, indexdInfo.URL)
 	if err != nil {
 		log.Println(err)
+		return
 	}
 
 	body := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
 		len(buff), s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
-	resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo.URL, indexdInfo.Username, indexdInfo.Password, []byte(body))
+	resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo, []byte(body))
 	if err != nil {
 		log.Println(err)
 	}
