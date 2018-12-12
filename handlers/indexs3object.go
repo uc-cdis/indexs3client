@@ -19,9 +19,6 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	log.Println("Start get rev")
-	log.Println("requested url:", indexURL+"/"+uuid)
-
 	log.Println("response Status:", resp.Status)
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("Can not get record rev of %s. IndexURL %s", uuid, indexURL)

@@ -36,7 +36,8 @@ func IndexS3Object(s3objectURL string) {
 		return
 	}
 	bucket, key := u.Host, u.Path
-	uuid := strings.Split(key, "/")[0]
+
+	uuid := strings.Split(key, "/")[1]
 
 	client, err := CreateNewAwsClient()
 	if err != nil {
