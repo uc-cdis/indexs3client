@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 )
 
@@ -19,9 +18,8 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	log.Println("response Status:", resp.Status)
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("Can not get record rev of %s. IndexURL %s", uuid, indexURL)
+		return "", fmt.Errorf("Can not get rev of the record %s. IndexURL %s. Status code %d", uuid, indexURL, resp.StatusCode)
 	}
 
 	body, _ := ioutil.ReadAll(resp.Body)

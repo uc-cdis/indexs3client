@@ -71,6 +71,6 @@ func IndexS3Object(s3objectURL string) {
 		log.Println(err)
 	}
 
-	log.Printf("Response Status: %s", resp.Status)
+	log.Printf("Finish updating the record. Response Status: %s", resp.Status)
 
 }
