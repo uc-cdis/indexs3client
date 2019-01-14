@@ -37,7 +37,19 @@ func IndexS3Object(s3objectURL string) {
 	}
 	bucket, key := u.Host, u.Path
 
-	uuid := strings.Split(key, "/")[1]
+	// key looks like one of these:
+	//
+	//     <uuid>/<filename>
+	//     <dataguid>/<uuid>/<filename>
+	//
+	// we want to keep the `<dataguid>/<uuid>` part
+	split_key := strings.Split(key, "/")
+	var uuid string
+	if len(split_key) == 2 {
+		uuid = split_key[0]
+	} else {
+		uuid = strings.Join(split_key[:len(split_key)-1], "/")
+	}
 
 	client, err := CreateNewAwsClient()
 	if err != nil {
