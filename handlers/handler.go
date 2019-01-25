@@ -59,7 +59,7 @@ func IndexS3Object(s3objectURL string) {
 
 	buff, err := StreamObjectFromS3(client, bucket, key)
 	if err != nil {
-		log.Printf("Can not download file. Detail %s\n\n", err)
+		log.Printf("Can not download file %s. Detail %s\n\n", key, err)
 		return
 	}
 
