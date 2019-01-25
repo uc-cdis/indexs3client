@@ -29,7 +29,7 @@ func getIndexServiceInfo() (*IndexdInfo, error) {
 // The fuction does several things. It first downloads the object from
 // S3, computes size and hashes, and update indexd
 func IndexS3Object(s3objectURL string) {
-
+	s3objectURL, _ = url.QueryUnescape(s3objectURL)
 	u, err := url.Parse(s3objectURL)
 	if err != nil {
 		log.Printf("Wrong url format %s\n", s3objectURL)
