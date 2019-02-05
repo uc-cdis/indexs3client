@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +16,17 @@ type IndexdInfo struct {
 	Password string `password`
 }
 
+func minOf(vars ...int64) int64 {
+	min := vars[0]
+
+	for _, i := range vars {
+		if min > i {
+			min = i
+		}
+	}
+
+	return min
+}
 func getIndexServiceInfo() (*IndexdInfo, error) {
 	indexdInfo := new(IndexdInfo)
 	if err := json.Unmarshal([]byte(os.Getenv("CONFIG_FILE")), indexdInfo); err != nil {
@@ -57,15 +67,10 @@ func IndexS3Object(s3objectURL string) {
 		return
 	}
 
-	buff, err := StreamObjectFromS3(client, bucket, key)
-	if err != nil {
-		log.Printf("Can not download file %s. Detail %s\n\n", key, err)
-		return
-	}
+	hashes, objectLength, err := CalculateBasicHashes(client, bucket, key)
 
-	hashes, err := CalculateBasicHashes(bytes.NewReader(buff))
 	if err != nil {
-		log.Printf("Can not compute hashes. Detail %s\n\n", err)
+		log.Printf("Can not compute hashes for %s. Detail %s ", key, err)
 		return
 	}
 
@@ -77,7 +82,7 @@ func IndexS3Object(s3objectURL string) {
 	}
 
 	body := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
-		len(buff), s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
+		objectLength, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
 	resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo, []byte(body))
 	if err != nil {
 		log.Println(err)
