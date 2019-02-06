@@ -67,7 +67,7 @@ func IndexS3Object(s3objectURL string) {
 		return
 	}
 
-	hashes, objectLength, err := CalculateBasicHashes(client, bucket, key)
+	hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
 
 	if err != nil {
 		log.Printf("Can not compute hashes for %s. Detail %s ", key, err)
@@ -82,7 +82,7 @@ func IndexS3Object(s3objectURL string) {
 	}
 
 	body := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
-		objectLength, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
+		objectSize, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
 	resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo, []byte(body))
 	if err != nil {
 		log.Println(err)

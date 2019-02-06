@@ -17,12 +17,12 @@ type AwsClient struct {
 	session *session.Session
 }
 
-// CreateNewSession creats a aws s3 session
+// CreateNewSession creates an aws s3 session
 func CreateNewAwsClient() (*AwsClient, error) {
 	client := new(AwsClient)
 
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("us-east-1"),
+		Region: aws.String(os.Getenv("AWS_REGION")),
 		Credentials: credentials.NewStaticCredentials(
 			os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY"), ""),
 	})
@@ -35,7 +35,7 @@ func CreateNewAwsClient() (*AwsClient, error) {
 	return client, nil
 }
 
-// GetChunkDataFromS3 downloads chuck data from s3
+// GetChunkDataFromS3 downloads chunk data from s3
 func GetChunkDataFromS3(client *AwsClient, bucket string, key string, byteRange string) ([]byte, error) {
 	buff := &aws.WriteAtBuffer{}
 	s3dl := s3manager.NewDownloader(client.session)
