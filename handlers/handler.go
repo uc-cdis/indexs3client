@@ -67,12 +67,14 @@ func IndexS3Object(s3objectURL string) {
 		return
 	}
 
+	log.Printf("Start to compute hashes for %s", key)
 	hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
 
 	if err != nil {
 		log.Printf("Can not compute hashes for %s. Detail %s ", key, err)
 		return
 	}
+	log.Printf("Finish to compute hashes for %s", key)
 
 	indexdInfo, _ := getIndexServiceInfo()
 	rev, err := GetIndexdRecordRev(uuid, indexdInfo.URL)
