@@ -67,14 +67,15 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 	step := int64(ChunkSize)
 	for {
 		chunkRange := fmt.Sprintf("bytes: %d-%d", start, minOf(start+step, *objectSize-1))
+
 		buff, err := GetChunkDataFromS3(client, bucket, key, chunkRange)
 		if err != nil {
 			log.Printf("Can not stream chunk data of %s. Detail %s\n\n", key, err)
 			return nil, -1, err
 		}
-		log.Println("start compute hash")
+
 		hashCollection, err = UpdateBasicHashes(hashCollection, buff)
-		log.Println("end compute hash")
+
 		if err != nil {
 			log.Printf("Can not compute hashes. Detail %s\n\n", err)
 		}

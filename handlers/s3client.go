@@ -37,7 +37,6 @@ func CreateNewAwsClient() (*AwsClient, error) {
 
 // GetChunkDataFromS3 downloads chunk data from s3
 func GetChunkDataFromS3(client *AwsClient, bucket string, key string, byteRange string) ([]byte, error) {
-	//buff := &aws.WriteAtBuffer{}
 
 	svc := s3.New(client.session)
 	input := &s3.GetObjectInput{
