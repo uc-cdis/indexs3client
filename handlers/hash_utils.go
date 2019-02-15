@@ -14,7 +14,7 @@ import (
 	"sync"
 )
 
-const ChunkSize = 1024 * 1024
+const ChunkSize = 1024 * 1024 * 64
 
 type HashInfo struct {
 	Crc32c string
@@ -61,6 +61,7 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 		log.Printf("Fail to get object size of %s. Detail %s\n\n", key, err)
 		return nil, -1, err
 	}
+	log.Printf("Size %d", *objectSize)
 
 	start := int64(0)
 	step := int64(ChunkSize)

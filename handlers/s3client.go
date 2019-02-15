@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -9,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
 // AWS sesssion wrapper
@@ -37,18 +37,36 @@ func CreateNewAwsClient() (*AwsClient, error) {
 
 // GetChunkDataFromS3 downloads chunk data from s3
 func GetChunkDataFromS3(client *AwsClient, bucket string, key string, byteRange string) ([]byte, error) {
-	buff := &aws.WriteAtBuffer{}
-	s3dl := s3manager.NewDownloader(client.session)
-	_, err := s3dl.Download(buff, &s3.GetObjectInput{
+	//buff := &aws.WriteAtBuffer{}
+
+	svc := s3.New(client.session)
+	input := &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 		Range:  aws.String(byteRange),
-	})
+	}
 
+	result, err := svc.GetObject(input)
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case s3.ErrCodeNoSuchKey:
+				fmt.Println(s3.ErrCodeNoSuchKey, aerr.Error())
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			fmt.Println(err.Error())
+		}
 		return nil, err
 	}
-	return buff.Bytes(), nil
+	body, err := ioutil.ReadAll(result.Body)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	return body, nil
 
 }
 
