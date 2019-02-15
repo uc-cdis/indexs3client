@@ -14,7 +14,7 @@ import (
 	"sync"
 )
 
-const ChunkSize = 1024 * 1024 * 96
+const ChunkSize = 1024 * 1024
 
 type HashInfo struct {
 	Crc32c string
@@ -71,7 +71,9 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 			log.Printf("Can not stream chunk data of %s. Detail %s\n\n", key, err)
 			return nil, -1, err
 		}
+		log.Println("start compute hash")
 		hashCollection, err = UpdateBasicHashes(hashCollection, buff)
+		log.Println("end compute hash")
 		if err != nil {
 			log.Printf("Can not compute hashes. Detail %s\n\n", err)
 		}
