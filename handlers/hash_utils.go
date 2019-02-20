@@ -15,6 +15,7 @@ import (
 )
 
 const ChunkSize = 1024 * 1024 * 64
+const MaxRetries = 10
 
 type HashInfo struct {
 	Crc32c string
@@ -67,9 +68,25 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 	step := int64(ChunkSize)
 	for {
 		chunkRange := fmt.Sprintf("bytes: %d-%d", start, minOf(start+step, *objectSize-1))
+		chunkLength := minOf(start+step, *objectSize-1) - start + 1
 
-		buff, err := GetChunkDataFromS3(client, bucket, key, chunkRange)
-		if err != nil {
+		var buff []byte
+		var err error
+		var retries = 0
+
+		for {
+			buff, err = GetChunkDataFromS3(client, bucket, key, chunkRange)
+			if err != nil || int64(len(buff)) != chunkLength {
+				if retries == MaxRetries {
+					break
+				}
+				retries++
+			} else {
+				break
+			}
+		}
+
+		if err != nil || int64(len(buff)) != chunkLength {
 			log.Printf("Can not stream chunk data of %s. Detail %s\n\n", key, err)
 			return nil, -1, err
 		}
