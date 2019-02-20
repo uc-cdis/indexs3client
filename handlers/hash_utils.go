@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
+	"fmt"
 	"hash"
 	"hash/crc32"
 	"io"
@@ -14,6 +15,7 @@ import (
 )
 
 const ChunkSize = 1024 * 1024 * 64
+const MaxRetries = 10
 
 type HashInfo struct {
 	Crc32c string
@@ -65,23 +67,40 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 	result, _ := GetS3ObjectOutput(client, bucket, key)
 	p := make([]byte, ChunkSize)
 
+	start := int64(0)
+	step := int64(ChunkSize)
 	for {
-		n, err := result.Body.Read(p)
+		chunkRange := fmt.Sprintf("bytes: %d-%d", start, minOf(start+step, *objectSize-1))
+		chunkLength := minOf(start+step, *objectSize-1) - start + 1
 
-		if err != nil && err != io.EOF {
-			return nil, int64(-1), err
+		var buff []byte
+		var err error
+		var retries = 0
+
+		for {
+			buff, err = GetChunkDataFromS3(client, bucket, key, chunkRange)
+			if err != nil || int64(len(buff)) != chunkLength {
+				if retries == MaxRetries {
+					break
+				}
+				retries++
+			} else {
+				break
+			}
 		}
 
-		var err2 error
-		hashCollection, err2 = UpdateBasicHashes(hashCollection, p[:n])
-		if err2 != nil {
-			log.Printf("Can not update hashes. Detail %s\n\n", err2)
+		if err != nil || int64(len(buff)) != chunkLength {
+			log.Printf("Can not stream chunk data of %s. Detail %s\n\n", key, err)
+			return nil, -1, err
+		}
+
+		hashCollection, err = UpdateBasicHashes(hashCollection, buff)
+		if err != nil {
+			log.Printf("Can not compute hashes. Detail %s\n\n", err)
 			return nil, int64(-1), err2
 		}
+		start = minOf(start+step, *objectSize-1) + 1
 
-		if err == io.EOF {
-			break
-		}
 	}
 
 	return &HashInfo{
