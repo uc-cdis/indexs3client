@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 type IndexdInfo struct {
@@ -77,19 +78,46 @@ func IndexS3Object(s3objectURL string) {
 	log.Printf("Finish to compute hashes for %s", key)
 
 	indexdInfo, _ := getIndexServiceInfo()
-	rev, err := GetIndexdRecordRev(uuid, indexdInfo.URL)
-	if err != nil {
-		log.Println(err)
-		return
+
+	var retries = 0
+	var rev = ""
+
+	for {
+		rev, err = GetIndexdRecordRev(uuid, indexdInfo.URL)
+		if err != nil {
+			retries++
+			time.Sleep(30)
+		}
+		if retries == MaxRetries {
+			log.Println(err)
+			return
+		}
 	}
 
 	body := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
 		objectSize, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
-	resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo, []byte(body))
-	if err != nil {
-		log.Println(err)
+
+	retries = 0
+	for {
+		resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo, []byte(body))
+		if err != nil {
+			retries++
+			time.Sleep(30)
+		} else if resp.StatusCode != 200 {
+			retries++
+			time.Sleep(30)
+		} else {
+			log.Printf("Finish updating the record %s. Response Status: %s", uuid, resp.Status)
+			break
+		}
+
+		if retries == MaxRetries {
+			if err == nil {
+				log.Printf("Can not update %s with hash info. Status code %d", uuid, resp.StatusCode)
+			} else {
+				log.Printf("Can not update %s with hash info. Detail %s", uuid, err)
+			}
+			break
+		}
 	}
-
-	log.Printf("Finish updating the record. Response Status: %s", resp.Status)
-
 }
