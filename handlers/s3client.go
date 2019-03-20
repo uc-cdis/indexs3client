@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+  "strings"	
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -21,11 +22,25 @@ type AwsClient struct {
 func CreateNewAwsClient() (*AwsClient, error) {
 	client := new(AwsClient)
 
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(os.Getenv("AWS_REGION")),
-		Credentials: credentials.NewStaticCredentials(
-			os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY"), ""),
-	})
+	// support non-aws (ceph, swift, minio,...) endpoints
+	endpoint, ok := os.LookupEnv("AWS_ENDPOINT")
+	var s3Config *aws.Config
+	if ok {
+		s3Config = &aws.Config{
+			Credentials:      credentials.NewStaticCredentials(os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY"), ""),
+			Endpoint:         aws.String(endpoint),
+			Region:           aws.String(os.Getenv("AWS_REGION")),
+			DisableSSL:       aws.Bool(strings.Contains("https", endpoint)),
+			S3ForcePathStyle: aws.Bool(true),
+		}
+	} else {
+		s3Config = &aws.Config{
+			Credentials:      credentials.NewStaticCredentials(os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY"), ""),
+			Region: aws.String(os.Getenv("AWS_REGION")),
+		}
+	}
+
+	sess, err := session.NewSession(s3Config)
 
 	if err != nil {
 		return nil, err
