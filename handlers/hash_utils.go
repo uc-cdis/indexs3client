@@ -76,9 +76,6 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 		}
 
 		hashCollection, err = UpdateBasicHashes(hashCollection, p[:n])
-		if err != nil {
-			log.Printf("Can not compute hashes. Detail %s\n\n", err)
-		}
 	}
 
 	return &HashInfo{
@@ -94,7 +91,7 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 // UpdateBasicHashes updates a hashes collection
 func UpdateBasicHashes(hashCollection *HashCollection, rd []byte) (*HashCollection, error) {
 
-	//hashCollection.Reset()
+	hashCollection.Reset()
 	multiWriter := io.MultiWriter(hashCollection.Crc32c, hashCollection.Md5, hashCollection.Sha1, hashCollection.Sha256, hashCollection.Sha512)
 	_, err := multiWriter.Write(rd)
 

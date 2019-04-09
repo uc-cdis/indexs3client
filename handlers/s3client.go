@@ -34,7 +34,7 @@ func CreateNewAwsClient() (*AwsClient, error) {
 	return client, nil
 }
 
-// GetS3ObjectOutput downloads chunk data from s3
+// GetS3ObjectOutput gets object output from s3
 func GetS3ObjectOutput(client *AwsClient, bucket string, key string) (*s3.GetObjectOutput, error) {
 
 	svc := s3.New(client.session)
