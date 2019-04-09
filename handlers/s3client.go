@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -35,14 +34,13 @@ func CreateNewAwsClient() (*AwsClient, error) {
 	return client, nil
 }
 
-// GetChunkDataFromS3 downloads chunk data from s3
-func GetChunkDataFromS3(client *AwsClient, bucket string, key string, byteRange string) ([]byte, error) {
+// GetS3ObjectOutput gets object output from s3
+func GetS3ObjectOutput(client *AwsClient, bucket string, key string) (*s3.GetObjectOutput, error) {
 
 	svc := s3.New(client.session)
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
-		Range:  aws.String(byteRange),
 	}
 
 	result, err := svc.GetObject(input)
@@ -61,11 +59,8 @@ func GetChunkDataFromS3(client *AwsClient, bucket string, key string, byteRange 
 		}
 		return nil, err
 	}
-	body, err := ioutil.ReadAll(result.Body)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	return body, nil
+
+	return result, nil
 
 }
 
