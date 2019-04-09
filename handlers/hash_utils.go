@@ -6,12 +6,10 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"fmt"
 	"hash"
 	"hash/crc32"
 	"io"
 	"log"
-	"runtime"
 	"sync"
 )
 
@@ -53,20 +51,6 @@ func (h *HashCollection) Reset() {
 	h.Sha512.Reset()
 }
 
-func PrintMemUsage() {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
-	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
-	fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
-	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
-	fmt.Printf("\tNumGC = %v\n", m.NumGC)
-}
-
-func bToMb(b uint64) uint64 {
-	return b / 1024 / 1024
-}
-
 // CalculateBasicHashes generates hashes of aws bucket object
 func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashInfo, int64, error) {
 	hashCollection := CreateNewHashCollection()
@@ -78,29 +62,22 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 	}
 	log.Printf("Size %d", *objectSize)
 
-	start := int64(0)
-	step := int64(ChunkSize)
-	for {
-		PrintMemUsage()
-		log.Printf("bytes: %d-%d", start, minOf(start+step, *objectSize-1))
-		chunkRange := fmt.Sprintf("bytes: %d-%d", start, minOf(start+step, *objectSize-1))
+	result, _ := GetS3ObjectOutput(client, bucket, key)
+	p := make([]byte, ChunkSize)
 
-		_, err := GetChunkDataFromS3(client, bucket, key, chunkRange)
+	for {
+		n, err := result.Body.Read(p)
 		if err != nil {
-			log.Printf("Can not stream chunk data of %s. Detail %s\n\n", key, err)
-			return nil, -1, err
+			if err == io.EOF {
+				hashCollection, err = UpdateBasicHashes(hashCollection, p[:n])
+				break
+			}
+			return nil, int64(-1), err
 		}
 
-		//log.Print(len(buff))
-
-		//hashCollection, err = UpdateBasicHashes(hashCollection, buff)
-
+		hashCollection, err = UpdateBasicHashes(hashCollection, p[:n])
 		if err != nil {
 			log.Printf("Can not compute hashes. Detail %s\n\n", err)
-		}
-		start = minOf(start+step, *objectSize-1) + 1
-		if start >= *objectSize {
-			break
 		}
 	}
 
@@ -117,7 +94,7 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 // UpdateBasicHashes updates a hashes collection
 func UpdateBasicHashes(hashCollection *HashCollection, rd []byte) (*HashCollection, error) {
 
-	hashCollection.Reset()
+	//hashCollection.Reset()
 	multiWriter := io.MultiWriter(hashCollection.Crc32c, hashCollection.Md5, hashCollection.Sha1, hashCollection.Sha256, hashCollection.Sha512)
 	_, err := multiWriter.Write(rd)
 
