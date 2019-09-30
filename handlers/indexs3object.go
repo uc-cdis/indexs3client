@@ -27,13 +27,16 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 	var data interface{}
 
 	json.Unmarshal(body, &data)
-	data = data.(map[string]interface{})["rev"]
+
+	iDataMap := data.(map[string]interface{})
+
+	data = iDataMap["rev"]
 
 	if revStr, ok := data.(string); ok {
 		return revStr, nil
 	}
 
-	return "", fmt.Errorf("Can not get rev of the record %s. IndexURL %s. Status code %d. Key \"rev\" not found in data map: %v", uuid, indexURL, resp.StatusCode, data)
+	return "", fmt.Errorf("Can not get rev of the record %s. IndexURL %s. Status code %d. Key \"rev\" not found in data map: %v", uuid, indexURL, resp.StatusCode, iDataMap)
 
 }
 
