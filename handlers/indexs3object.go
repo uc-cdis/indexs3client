@@ -29,7 +29,12 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 	json.Unmarshal(body, &data)
 	data = data.(map[string]interface{})["rev"]
 
-	return data.(string), nil
+	if revStr, ok := data.(string); ok {
+		return revStr, nil
+	}
+
+	return "", fmt.Errorf("Can not get rev of the record %s. IndexURL %s. Status code %d. Key \"rev\" not found in data map: %v", uuid, indexURL, resp.StatusCode, data)
+
 }
 
 // UpdateIndexdRecord updates the record with size, urls and hashes endcoded in body
