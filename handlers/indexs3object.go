@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 )
 
 // GetIndexdRecordRev gets record rev
@@ -69,7 +70,7 @@ func CreateBlankIndexdRecord(indexdInfo *IndexdInfo, body []byte) (*IndexdRecord
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode == http.StatusOK {
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
@@ -85,7 +86,15 @@ func CreateBlankIndexdRecord(indexdInfo *IndexdInfo, body []byte) (*IndexdRecord
 }
 
 func GetIndexdRecordByHash(indexdInfo *IndexdInfo, hash *HashInfo) (*IndexdRecord, error) {
-	req, err := http.NewRequest("GET", indexdInfo.URL+"/urls", nil)
+
+	// http://indexd-service/index
+	u, err := url.Parse(indexdInfo.URL)
+	if err != nil {
+		return nil, err
+	}
+	u.Path = "/urls"
+
+	req, err := http.NewRequest("GET", u.String(), nil)
 
 	q := req.URL.Query()
 	q.Add("hash", "md5:"+hash.Md5)
