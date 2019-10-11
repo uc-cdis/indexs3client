@@ -7,13 +7,21 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 type IndexdInfo struct {
-	URL      string `url`
-	Username string `username`
-	Password string `password`
+	URL              string `url`
+	Username         string `username`
+	Password         string `password`
+	ExtramuralBucket bool   `extramural_bucket`
+}
+
+type IndexdRecord struct {
+	DID    string `did`
+	BaseID string `baseid`
+	Rev    string `rev`
 }
 
 func minOf(vars ...int64) int64 {
@@ -47,19 +55,7 @@ func IndexS3Object(s3objectURL string) {
 	}
 	bucket, key := u.Host, u.Path
 
-	// key looks like one of these:
-	//
-	//     <uuid>/<filename>
-	//     <dataguid>/<uuid>/<filename>
-	//
-	// we want to keep the `<dataguid>/<uuid>` part
-	split_key := strings.Split(key, "/")
-	var uuid string
-	if len(split_key) == 2 {
-		uuid = split_key[0]
-	} else {
-		uuid = strings.Join(split_key[:len(split_key)-1], "/")
-	}
+	indexdInfo, _ := getIndexServiceInfo()
 
 	client, err := CreateNewAwsClient()
 	if err != nil {
@@ -76,11 +72,48 @@ func IndexS3Object(s3objectURL string) {
 	}
 	log.Printf("Finish to compute hashes for %s", key)
 
-	indexdInfo, _ := getIndexServiceInfo()
-	rev, err := GetIndexdRecordRev(uuid, indexdInfo.URL)
-	if err != nil {
-		log.Println(err)
-		return
+	var uuid, rev string
+
+	// Create the indexd record if this is an ExtramuralBucket and it doesn't already exist
+	if indexdInfo.ExtramuralBucket {
+
+		// search indexd to see if the record already exists
+		if foundIndexdRecord, err := GetIndexdRecordByHash(indexdInfo, hashes); err == nil {
+			uuid = foundIndexdRecord.DID
+			rev = foundIndexdRecord.Rev
+		} else {
+			body := fmt.Sprintf(`{"uploader": "%s", "file_name": "%s"}`,
+				"indexs3object-ExtramuralBucket", filepath.Base(key))
+
+			indexdRecord, err := CreateBlankIndexdRecord(indexdInfo, []byte(body))
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			uuid = indexdRecord.DID
+			rev = indexdRecord.Rev
+		}
+
+	} else {
+		// key looks like one of these:
+		//
+		//     <uuid>/<filename>
+		//     <dataguid>/<uuid>/<filename>
+		//
+		// we want to keep the `<dataguid>/<uuid>` part
+		split_key := strings.Split(key, "/")
+		if len(split_key) == 2 {
+			uuid = split_key[0]
+		} else {
+			uuid = strings.Join(split_key[:len(split_key)-1], "/")
+		}
+
+		rev, err = GetIndexdRecordRev(uuid, indexdInfo.URL)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 	}
 
 	body := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
