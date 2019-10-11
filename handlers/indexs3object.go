@@ -37,7 +37,7 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 		return revStr, nil
 	}
 
-	return "", fmt.Errorf("Can not get rev of the record %s. IndexURL %s. Status code %d. Key \"rev\" not found in data map: %v", uuid, indexURL, resp.StatusCode, iDataMap)
+	return "", fmt.Errorf("Can not get rev of the record with uuid '%v'. IndexURL %s. Status code %d. Key \"rev\" not found in data map: %v", uuid, indexURL, resp.StatusCode, iDataMap)
 }
 
 // UpdateIndexdRecord updates the record with size, urls and hashes endcoded in body

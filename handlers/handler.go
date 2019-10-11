@@ -113,6 +113,10 @@ func IndexS3Object(s3objectURL string) {
 			uuid = strings.Join(split_key[:len(split_key)-1], "/")
 		}
 
+		if uuid == "" {
+			panic("Are you trying to index a non-Gen3 managed S3 bucket? Try setting 'extramural_bucket: true' in the config, no UUID found in object path.")
+		}
+
 		rev, err = GetIndexdRecordRev(uuid, indexdInfo.URL)
 		if err != nil {
 			log.Println(err)
