@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -82,10 +81,15 @@ func IndexS3Object(s3objectURL string) {
 			uuid = foundIndexdRecord.DID
 			rev = foundIndexdRecord.Rev
 		} else {
-			body := fmt.Sprintf(`{"uploader": "%s", "file_name": "%s"}`,
-				"indexs3object-ExtramuralBucket", filepath.Base(key))
 
-			indexdRecord, err := CreateBlankIndexdRecord(indexdInfo, []byte(body))
+			body, _ := json.Marshal(struct {
+				Uploader string `json:"uploader"`
+				Filename string `json:"file_name"`
+			}{
+				"indexs3object-ExtramuralBucket", filepath.Base(key),
+			})
+
+			indexdRecord, err := CreateBlankIndexdRecord(indexdInfo, body)
 			if err != nil {
 				log.Println(err)
 				return
@@ -116,9 +120,15 @@ func IndexS3Object(s3objectURL string) {
 		}
 	}
 
-	body := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
-		objectSize, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
-	resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo, []byte(body))
+	body, _ := json.Marshal(struct {
+		Size   int64     `json:"size"`
+		URLs   []string  `json:"urls"`
+		Hashes *HashInfo `json:"hashes"`
+	}{
+		objectSize, []string{s3objectURL}, hashes,
+	})
+
+	resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo, body)
 	if err != nil {
 		log.Println(err)
 	}

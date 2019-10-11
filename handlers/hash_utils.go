@@ -16,11 +16,11 @@ import (
 const ChunkSize = 1024 * 1024 * 64
 
 type HashInfo struct {
-	Crc32c string
-	Md5    string
-	Sha1   string
-	Sha256 string
-	Sha512 string
+	Crc32c string `json:"crc"`
+	Md5    string `json:"md5"`
+	Sha1   string `json:"sha1"`
+	Sha256 string `json:"sha256"`
+	Sha512 string `json:"sha512"`
 }
 
 // HashCollection contains hashes
