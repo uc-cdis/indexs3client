@@ -12,16 +12,16 @@ import (
 )
 
 type IndexdInfo struct {
-	URL              string `url`
-	Username         string `username`
-	Password         string `password`
-	ExtramuralBucket bool   `extramural_bucket`
+	URL              string `json:"url"`
+	Username         string `json:"username"`
+	Password         string `json:"password"`
+	ExtramuralBucket bool   `json:"extramural_bucket"`
 }
 
 type IndexdRecord struct {
-	DID    string `did`
-	BaseID string `baseid`
-	Rev    string `rev`
+	DID    string `json:"did"`
+	BaseID string `json:"baseid"`
+	Rev    string `json:"rev"`
 }
 
 func minOf(vars ...int64) int64 {
