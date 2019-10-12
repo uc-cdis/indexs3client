@@ -77,7 +77,7 @@ func IndexS3Object(s3objectURL string) {
 	if indexdInfo.ExtramuralBucket {
 
 		// search indexd to see if the record already exists
-		if foundIndexdRecord, err := GetIndexdRecordByHash(indexdInfo, hashes); err == nil {
+		if foundIndexdRecord, err := GetIndexdRecordByURL(indexdInfo, s3objectURL); err == nil {
 			uuid = foundIndexdRecord.DID
 			rev = foundIndexdRecord.Rev
 		} else {

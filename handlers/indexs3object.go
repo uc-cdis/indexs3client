@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 )
 
 // GetIndexdRecordRev gets record rev
@@ -85,19 +84,12 @@ func CreateBlankIndexdRecord(indexdInfo *IndexdInfo, body []byte) (*IndexdRecord
 	return nil, fmt.Errorf("Problem creating blank record for %v", string(body))
 }
 
-func GetIndexdRecordByHash(indexdInfo *IndexdInfo, hash *HashInfo) (*IndexdRecord, error) {
+func GetIndexdRecordByURL(indexdInfo *IndexdInfo, url string) (*IndexdRecord, error) {
 
-	// http://indexd-service/index
-	u, err := url.Parse(indexdInfo.URL)
-	if err != nil {
-		return nil, err
-	}
-	u.Path = "/urls"
-
-	req, err := http.NewRequest("GET", u.String(), nil)
+	req, err := http.NewRequest("GET", indexdInfo.URL+"/_query/urls/q", nil)
 
 	q := req.URL.Query()
-	q.Add("hash", "md5:"+hash.Md5)
+	q.Add("include", url)
 	req.URL.RawQuery = q.Encode()
 
 	client := &http.Client{}
@@ -108,30 +100,26 @@ func GetIndexdRecordByHash(indexdInfo *IndexdInfo, hash *HashInfo) (*IndexdRecor
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("Failed getting rev for hash %s. IndexURL %s. Status code %d", hash.Md5, indexdInfo.URL, resp.StatusCode)
+		return nil, fmt.Errorf("Failed getting rev for url %s. IndexURL %s. Status code %d", url, indexdInfo.URL, resp.StatusCode)
 	}
 
 	body, _ := ioutil.ReadAll(resp.Body)
 
-	var data interface{}
+	var data []struct {
+		DID  string   `json:"did"`
+		URLs []string `json:"urls"`
+	}
 
 	json.Unmarshal(body, &data)
 
-	iDataMap := data.(map[string]interface{})
-
-	urls, ok := iDataMap["urls"].([]map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("Can not get urls for hash %s. IndexURL %s", hash.Md5, indexdInfo.URL)
-	}
-	metadata, ok2 := urls[0]["metadata"].(map[string]interface{})
-	if !ok2 {
-		return nil, fmt.Errorf("Can not get metadata for hash %s. IndexURL %s", hash.Md5, indexdInfo.URL)
+	rev, err := GetIndexdRecordRev(data[0].DID, indexdInfo.URL)
+	if err != nil {
+		return nil, err
 	}
 
 	record := new(IndexdRecord)
-	record.DID = metadata["did"].(string)
-	record.BaseID = metadata["baseid"].(string)
-	record.Rev = metadata["rev"].(string)
+	record.DID = data[0].DID
+	record.Rev = rev
 
 	return record, nil
 }
