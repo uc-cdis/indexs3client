@@ -111,6 +111,9 @@ func GetIndexdRecordByURL(indexdInfo *IndexdInfo, url string) (*IndexdRecord, er
 	}
 
 	json.Unmarshal(body, &data)
+	if len(data) == 0 {
+		return nil, fmt.Errorf("Failed getting rev for url %s. IndexURL %s. Status code %d", url, indexdInfo.URL, resp.StatusCode)
+	}
 
 	rev, err := GetIndexdRecordRev(data[0].DID, indexdInfo.URL)
 	if err != nil {
