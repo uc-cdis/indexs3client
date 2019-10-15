@@ -34,6 +34,20 @@ func CreateNewAwsClient() (*AwsClient, error) {
 	return client, nil
 }
 
+func GetS3BucketOwner(client *AwsClient, bucket string) (string, error) {
+	svc := s3.New(client.session)
+	input := &s3.GetBucketAclInput{
+		Bucket: aws.String(bucket),
+	}
+
+	result, err := svc.GetBucketAcl(input)
+	if err != nil {
+		return "", err
+	}
+
+	return *result.Owner.DisplayName, nil
+}
+
 // GetS3ObjectOutput gets object output from s3
 func GetS3ObjectOutput(client *AwsClient, bucket string, key string) (*s3.GetObjectOutput, error) {
 

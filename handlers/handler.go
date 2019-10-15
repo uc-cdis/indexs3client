@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net/url"
 	"os"
@@ -15,6 +17,10 @@ type IndexdInfo struct {
 	Username         string `json:"username"`
 	Password         string `json:"password"`
 	ExtramuralBucket bool   `json:"extramural_bucket"`
+
+	ExtramuralUploader         *string `json:"extramural_uploader"`
+	ExtramuralUploaderS3Owner  bool    `json:"extramural_uploader_s3owner"`
+	ExtramuralUploaderManifest *string `json:"extramural_uploader_manifest"`
 }
 
 type IndexdRecord struct {
@@ -81,12 +87,33 @@ func IndexS3Object(s3objectURL string) {
 			uuid = foundIndexdRecord.DID
 			rev = foundIndexdRecord.Rev
 		} else {
+			var uploader string
+
+			if indexdInfo.ExtramuralUploader != nil {
+				uploader = *(indexdInfo.ExtramuralUploader)
+			} else if indexdInfo.ExtramuralUploaderS3Owner {
+				s3owner, err := GetS3BucketOwner(client, bucket)
+				if err != nil {
+					panic(err) // Should always be able to fetch owner, something bad happened if not
+				}
+
+				uploader = s3owner
+			} else if indexdInfo.ExtramuralUploaderManifest != nil {
+				// Read from manifest, try to find uploader.
+				// if fail, default to empty string
+				oo, err := GetS3ObjectOutput(client, bucket, *indexdInfo.ExtramuralUploaderManifest)
+				if err == nil {
+					uploader = FindUploaderInManifest(key, oo.Body)
+				} else {
+					log.Println(err)
+				}
+			}
 
 			body, _ := json.Marshal(struct {
 				Uploader string `json:"uploader"`
 				Filename string `json:"file_name"`
 			}{
-				"indexs3object-ExtramuralBucket", filepath.Base(key),
+				uploader, filepath.Base(key),
 			})
 
 			indexdRecord, err := CreateBlankIndexdRecord(indexdInfo, body)
@@ -139,4 +166,28 @@ func IndexS3Object(s3objectURL string) {
 
 	log.Printf("Finish updating the record. Response Status: %s", resp.Status)
 
+}
+
+func FindUploaderInManifest(object string, oo io.Reader) string {
+	uploader := ""
+
+	manifest := csv.NewReader(oo)
+	manifestRecords, err := manifest.ReadAll()
+	if err == nil {
+		uploaderMap := make(map[string]string)
+
+		for _, row := range manifestRecords {
+			uploaderMap[row[0]] = row[1]
+		}
+
+		if val, ok := uploaderMap[object]; ok {
+			uploader = val
+		} else {
+			log.Printf("Object %s not found in uploader manifest file", object)
+		}
+	} else {
+		log.Println(err)
+	}
+
+	return uploader
 }
