@@ -136,11 +136,9 @@ func IndexS3Object(s3objectURL string) {
 		split_key := strings.Split(key, "/")
 		if len(split_key) == 2 {
 			uuid = split_key[0]
-		} else {
+		} else if len(split_key) == 3 {
 			uuid = strings.Join(split_key[:len(split_key)-1], "/")
-		}
-
-		if uuid == "" {
+		} else {
 			panic("Are you trying to index a non-Gen3 managed S3 bucket? Try setting 'extramural_bucket: true' in the config, no UUID found in object path.")
 		}
 
