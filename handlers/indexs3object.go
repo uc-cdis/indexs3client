@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 // GetIndexdRecordRev gets record rev
@@ -84,9 +85,15 @@ func CreateBlankIndexdRecord(indexdInfo *IndexdInfo, body []byte) (*IndexdRecord
 	return nil, fmt.Errorf("Problem creating blank record for %v", string(body))
 }
 
-func GetIndexdRecordByURL(indexdInfo *IndexdInfo, url string) (*IndexdRecord, error) {
+type searchResponse []struct {
+	DID  string   `json:"did"`
+	URLs []string `json:"urls"`
+}
 
-	req, err := http.NewRequest("GET", indexdInfo.URL+"/_query/urls/q", nil)
+func SearchRecordByURL(indexdInfo *IndexdInfo, url string) (searchResponse, error) {
+
+	baseURL := strings.TrimSuffix(indexdInfo.URL, "/index")
+	req, err := http.NewRequest("GET", baseURL+"/_query/urls/q", nil)
 
 	q := req.URL.Query()
 	q.Add("include", url)
@@ -102,27 +109,15 @@ func GetIndexdRecordByURL(indexdInfo *IndexdInfo, url string) (*IndexdRecord, er
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("Failed getting rev for url %s. IndexURL %s. Status code %d", url, indexdInfo.URL, resp.StatusCode)
 	}
-
-	body, _ := ioutil.ReadAll(resp.Body)
-
-	var data []struct {
-		DID  string   `json:"did"`
-		URLs []string `json:"urls"`
-	}
-
-	json.Unmarshal(body, &data)
-	if len(data) == 0 {
-		return nil, fmt.Errorf("Failed getting rev for url %s. IndexURL %s. Status code %d", url, indexdInfo.URL, resp.StatusCode)
-	}
-
-	rev, err := GetIndexdRecordRev(data[0].DID, indexdInfo.URL)
+	var data searchResponse
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return data, err
 	}
+	uErr := json.Unmarshal(body, &data)
+	if uErr != nil {
+		return data, uErr
+	}
+	return data, nil
 
-	record := new(IndexdRecord)
-	record.DID = data[0].DID
-	record.Rev = rev
-
-	return record, nil
 }

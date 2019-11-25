@@ -21,6 +21,7 @@ type IndexdInfo struct {
 	ExtramuralUploader         *string `json:"extramural_uploader"`
 	ExtramuralUploaderS3Owner  bool    `json:"extramural_uploader_s3owner"`
 	ExtramuralUploaderManifest *string `json:"extramural_uploader_manifest"`
+	ExtramuralInitialMode      bool    `json:"extramural_initial_mode"`
 }
 
 type IndexdRecord struct {
@@ -68,25 +69,37 @@ func IndexS3Object(s3objectURL string) {
 		return
 	}
 
-	log.Printf("Start to compute hashes for %s", key)
-	hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
-
-	if err != nil {
-		log.Printf("Can not compute hashes for %s. Detail %s ", key, err)
-		return
-	}
-	log.Printf("Finish to compute hashes for %s", key)
-
 	var uuid, rev string
 
 	// Create the indexd record if this is an ExtramuralBucket and it doesn't already exist
 	if indexdInfo.ExtramuralBucket {
 
 		// search indexd to see if the record already exists
-		if foundIndexdRecord, err := GetIndexdRecordByURL(indexdInfo, s3objectURL); err == nil {
-			uuid = foundIndexdRecord.DID
-			rev = foundIndexdRecord.Rev
-		} else {
+		foundRecords, err := SearchRecordByURL(indexdInfo, s3objectURL)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		// Should we create a blank record?
+		if len(foundRecords) > 0 { // no
+
+			// Skip hash update, this is an inital run
+			if indexdInfo.ExtramuralInitialMode {
+				log.Printf("Object already exists during initial index, skipping: %s. Done.", s3objectURL)
+				return
+			}
+
+			// Find rev to update with hashes
+			foundRev, err := GetIndexdRecordRev(foundRecords[0].DID, indexdInfo.URL)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			uuid = foundRecords[0].DID
+			rev = foundRev
+
+		} else { // yes
 			var uploader string
 
 			if indexdInfo.ExtramuralUploader != nil {
@@ -122,10 +135,10 @@ func IndexS3Object(s3objectURL string) {
 				return
 			}
 
+			// To update hashes
 			uuid = indexdRecord.DID
 			rev = indexdRecord.Rev
 		}
-
 	} else {
 		// key looks like one of these:
 		//
@@ -142,12 +155,22 @@ func IndexS3Object(s3objectURL string) {
 			panic("Are you trying to index a non-Gen3 managed S3 bucket? Try setting 'extramural_bucket: true' in the config, no UUID found in object path.")
 		}
 
-		rev, err = GetIndexdRecordRev(uuid, indexdInfo.URL)
+		foundRev, err := GetIndexdRecordRev(uuid, indexdInfo.URL)
 		if err != nil {
 			log.Println(err)
 			return
 		}
+		rev = foundRev
 	}
+
+	log.Printf("Start to compute hashes for %s", key)
+	hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
+
+	if err != nil {
+		log.Printf("Can not compute hashes for %s. Detail %s ", key, err)
+		return
+	}
+	log.Printf("Finish to compute hashes for %s", key)
 
 	body, _ := json.Marshal(struct {
 		Size   int64     `json:"size"`
@@ -163,6 +186,8 @@ func IndexS3Object(s3objectURL string) {
 	}
 
 	log.Printf("Finish updating the record. Response Status: %s", resp.Status)
+
+	log.Printf("Done.")
 
 }
 
