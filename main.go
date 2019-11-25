@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/uc-cdis/indexs3client/handlers"
+	"github.com/jacquayj/indexs3client/handlers"
 )
 
 func main() {
