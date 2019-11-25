@@ -7,7 +7,5 @@ import (
 )
 
 func main() {
-
 	handlers.IndexS3Object(os.Getenv("INPUT_URL"))
-
 }
