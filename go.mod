@@ -1,4 +1,4 @@
-module github.com/uc-cdis/indexs3client
+module github.com/jacquayj/indexs3client
 
 go 1.12
 
