@@ -52,17 +52,17 @@ func (h *HashCollection) Reset() {
 }
 
 // CalculateBasicHashes generates hashes of aws bucket object
-func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashInfo, int64, error) {
+func (client *AwsClient) CalculateBasicHashes(bucket string, key string) (*HashInfo, int64, error) {
 	hashCollection := CreateNewHashCollection()
 
-	objectSize, err := GetObjectSize(client, bucket, key)
+	objectSize, err := client.GetObjectSize(bucket, key)
 	if err != nil {
 		log.Printf("Fail to get object size of %s. Detail %s\n\n", key, err)
 		return nil, -1, err
 	}
 	log.Printf("Size %d", *objectSize)
 
-	result, _ := GetS3ObjectOutput(client, bucket, key)
+	result, _ := client.GetS3ObjectOutput(bucket, key)
 	p := make([]byte, ChunkSize)
 
 	for {

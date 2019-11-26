@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 type IndexdInfo struct {
@@ -49,10 +51,11 @@ func getIndexServiceInfo() (*IndexdInfo, error) {
 	return indexdInfo, nil
 }
 
-// IndexS3Object indexes s3 object
-// The fuction does several things. It first downloads the object from
-// S3, computes size and hashes, and update indexd
-func IndexS3Object(s3objectURL string) {
+func IndexS3ObjectEmbedded(s3objectURL string, indexdInfo *IndexdInfo, awsSession *session.Session) {
+	RunIndexS3Object(s3objectURL, indexdInfo, &AwsClient{awsSession})
+}
+
+func RunIndexS3Object(s3objectURL string, indexdInfo *IndexdInfo, client *AwsClient) {
 	s3objectURL, _ = url.QueryUnescape(s3objectURL)
 	u, err := url.Parse(s3objectURL)
 	if err != nil {
@@ -60,15 +63,6 @@ func IndexS3Object(s3objectURL string) {
 		return
 	}
 	bucket, key := u.Host, u.Path
-
-	indexdInfo, _ := getIndexServiceInfo()
-
-	client, err := CreateNewAwsClient()
-	if err != nil {
-		log.Printf("Can not create AWS client. Detail %s\n\n", err)
-		return
-	}
-
 	var uuid, rev string
 
 	// Create the indexd record if this is an ExtramuralBucket and it doesn't already exist
@@ -105,7 +99,7 @@ func IndexS3Object(s3objectURL string) {
 			if indexdInfo.ExtramuralUploader != nil {
 				uploader = *(indexdInfo.ExtramuralUploader)
 			} else if indexdInfo.ExtramuralUploaderS3Owner {
-				s3owner, err := GetS3BucketOwner(client, bucket)
+				s3owner, err := client.GetS3BucketOwner(bucket)
 				if err != nil {
 					panic(err) // Should always be able to fetch owner, something bad happened if not
 				}
@@ -114,7 +108,7 @@ func IndexS3Object(s3objectURL string) {
 			} else if indexdInfo.ExtramuralUploaderManifest != nil {
 				// Read from manifest, try to find uploader.
 				// if fail, default to empty string
-				oo, err := GetS3ObjectOutput(client, bucket, *indexdInfo.ExtramuralUploaderManifest)
+				oo, err := client.GetS3ObjectOutput(bucket, *indexdInfo.ExtramuralUploaderManifest)
 				if err == nil {
 					uploader = FindUploaderInManifest(key, oo.Body)
 				} else {
@@ -164,7 +158,7 @@ func IndexS3Object(s3objectURL string) {
 	}
 
 	log.Printf("Start to compute hashes for %s", key)
-	hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
+	hashes, objectSize, err := client.CalculateBasicHashes(bucket, key)
 
 	if err != nil {
 		log.Printf("Can not compute hashes for %s. Detail %s ", key, err)
@@ -188,7 +182,21 @@ func IndexS3Object(s3objectURL string) {
 	log.Printf("Finish updating the record. Response Status: %s", resp.Status)
 
 	log.Printf("Done.")
+}
 
+// IndexS3Object indexes s3 object
+// The fuction does several things. It first downloads the object from
+// S3, computes size and hashes, and update indexd
+func IndexS3Object(s3objectURL string) {
+	indexdInfo, _ := getIndexServiceInfo()
+
+	client, err := CreateNewAwsClient()
+	if err != nil {
+		log.Printf("Can not create AWS client. Detail %s\n\n", err)
+		return
+	}
+
+	RunIndexS3Object(s3objectURL, indexdInfo, client)
 }
 
 func FindUploaderInManifest(object string, oo io.Reader) string {

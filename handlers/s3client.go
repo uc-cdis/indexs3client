@@ -34,7 +34,7 @@ func CreateNewAwsClient() (*AwsClient, error) {
 	return client, nil
 }
 
-func GetS3BucketOwner(client *AwsClient, bucket string) (string, error) {
+func (client *AwsClient) GetS3BucketOwner(bucket string) (string, error) {
 	svc := s3.New(client.session)
 	input := &s3.GetBucketAclInput{
 		Bucket: aws.String(bucket),
@@ -49,8 +49,7 @@ func GetS3BucketOwner(client *AwsClient, bucket string) (string, error) {
 }
 
 // GetS3ObjectOutput gets object output from s3
-func GetS3ObjectOutput(client *AwsClient, bucket string, key string) (*s3.GetObjectOutput, error) {
-
+func (client *AwsClient) GetS3ObjectOutput(bucket string, key string) (*s3.GetObjectOutput, error) {
 	svc := s3.New(client.session)
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
@@ -79,7 +78,7 @@ func GetS3ObjectOutput(client *AwsClient, bucket string, key string) (*s3.GetObj
 }
 
 // GetObjectSize returns object size in bytes
-func GetObjectSize(client *AwsClient, bucket string, key string) (*int64, error) {
+func (client *AwsClient) GetObjectSize(bucket string, key string) (*int64, error) {
 	svc := s3.New(client.session)
 	input := &s3.HeadObjectInput{
 		Bucket: aws.String(bucket),
