@@ -13,19 +13,20 @@ import (
 
 // AWS sesssion wrapper
 type AwsClient struct {
+	config  *aws.Config
 	session *session.Session
 }
 
 // CreateNewSession creates an aws s3 session
 func CreateNewAwsClient() (*AwsClient, error) {
 	client := new(AwsClient)
-
-	sess, err := session.NewSession(&aws.Config{
+	client.config = &aws.Config{
 		Region: aws.String(os.Getenv("AWS_REGION")),
 		Credentials: credentials.NewStaticCredentials(
 			os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY"), ""),
-	})
+	}
 
+	sess, err := session.NewSession(client.config)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +35,24 @@ func CreateNewAwsClient() (*AwsClient, error) {
 	return client, nil
 }
 
+// Creates AWS Session if it's nil (embedded entry point)
+func (client *AwsClient) init() error {
+	if client.session == nil {
+		sess, err := session.NewSession(client.config)
+		if err != nil {
+			return err
+		}
+		client.session = sess
+	}
+	return nil
+}
+
 func (client *AwsClient) GetS3BucketOwner(bucket string) (string, error) {
+
+	if iErr := client.init(); iErr != nil {
+		return "", iErr
+	}
+
 	svc := s3.New(client.session)
 	input := &s3.GetBucketAclInput{
 		Bucket: aws.String(bucket),
@@ -50,6 +68,11 @@ func (client *AwsClient) GetS3BucketOwner(bucket string) (string, error) {
 
 // GetS3ObjectOutput gets object output from s3
 func (client *AwsClient) GetS3ObjectOutput(bucket string, key string) (*s3.GetObjectOutput, error) {
+
+	if iErr := client.init(); iErr != nil {
+		return nil, iErr
+	}
+
 	svc := s3.New(client.session)
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
@@ -79,6 +102,11 @@ func (client *AwsClient) GetS3ObjectOutput(bucket string, key string) (*s3.GetOb
 
 // GetObjectSize returns object size in bytes
 func (client *AwsClient) GetObjectSize(bucket string, key string) (*int64, error) {
+
+	if iErr := client.init(); iErr != nil {
+		return nil, iErr
+	}
+
 	svc := s3.New(client.session)
 	input := &s3.HeadObjectInput{
 		Bucket: aws.String(bucket),

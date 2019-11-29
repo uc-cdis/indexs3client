@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 type IndexdInfo struct {
@@ -51,8 +51,8 @@ func getIndexServiceInfo() (*IndexdInfo, error) {
 	return indexdInfo, nil
 }
 
-func IndexS3ObjectEmbedded(s3objectURL string, indexdInfo *IndexdInfo, awsSession *session.Session) {
-	RunIndexS3Object(s3objectURL, indexdInfo, &AwsClient{awsSession})
+func IndexS3ObjectEmbedded(s3objectURL string, indexdInfo *IndexdInfo, awsConfig *aws.Config) {
+	RunIndexS3Object(s3objectURL, indexdInfo, &AwsClient{awsConfig, nil})
 }
 
 func RunIndexS3Object(s3objectURL string, indexdInfo *IndexdInfo, client *AwsClient) {
