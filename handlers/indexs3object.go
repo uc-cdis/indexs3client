@@ -52,7 +52,12 @@ func UpdateIndexdRecord(uuid, rev string, indexdInfo *IndexdInfo, body []byte) (
 	req.SetBasicAuth(indexdInfo.Username, indexdInfo.Password)
 
 	client := &http.Client{}
-	return client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return resp, nil
 }
 
 func CreateBlankIndexdRecord(indexdInfo *IndexdInfo, body []byte) (*IndexdRecord, error) {
@@ -70,6 +75,7 @@ func CreateBlankIndexdRecord(indexdInfo *IndexdInfo, body []byte) (*IndexdRecord
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
