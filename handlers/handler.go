@@ -23,7 +23,8 @@ type IndexdInfo struct {
 	ExtramuralUploader         *string `json:"extramural_uploader"`
 	ExtramuralUploaderS3Owner  bool    `json:"extramural_uploader_s3owner"`
 	ExtramuralUploaderManifest *string `json:"extramural_uploader_manifest"`
-	ExtramuralInitialMode      bool    `json:"extramural_initial_mode"`
+	ExtramuralInitialMode      bool    `json:"extramural_initial_mode"` // If true, skips hash updates if record is already found in index
+	ExtramuralFastMode         bool    `json:"extramural_fast_mode"`    // If true, always creates a new record for the object
 }
 
 type IndexdRecord struct {
@@ -68,11 +69,17 @@ func RunIndexS3Object(s3objectURL string, indexdInfo *IndexdInfo, client *AwsCli
 	// Create the indexd record if this is an ExtramuralBucket and it doesn't already exist
 	if indexdInfo.ExtramuralBucket {
 
-		// search indexd to see if the record already exists
-		foundRecords, err := SearchRecordByURL(indexdInfo, s3objectURL)
-		if err != nil {
-			log.Println(err)
-			return
+		var foundRecords searchResponse
+
+		// Should we skip lookups for speed gains?
+		if !indexdInfo.ExtramuralFastMode {
+			// search indexd to see if the record already exists
+			var err error
+			foundRecords, err = SearchRecordByURL(indexdInfo, s3objectURL)
+			if err != nil {
+				log.Println(err)
+				return
+			}
 		}
 
 		// Should we create a blank record?
