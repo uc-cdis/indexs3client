@@ -102,6 +102,7 @@ func SearchRecordByURL(indexdInfo *IndexdInfo, url string) (searchResponse, erro
 	req, err := http.NewRequest("GET", baseURL+"/_query/urls/q", nil)
 
 	q := req.URL.Query()
+	q.Add("fast", "true")
 	q.Add("include", url)
 	req.URL.RawQuery = q.Encode()
 
