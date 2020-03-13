@@ -79,7 +79,7 @@ func IndexS3Object(s3objectURL string) {
 
 	indexdInfo, _ := getIndexServiceInfo()
 
-	var retries = 10
+	var retries = 0
 	var rev = ""
 
 	for {

@@ -77,6 +77,7 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 		for {
 			buff, err = GetChunkDataFromS3(client, bucket, key, chunkRange)
 			if err != nil || int64(len(buff)) != chunkLength {
+				log.Printf("FAIL: %d == %d", len(buff), chunkLength)
 				if retries == MaxRetries {
 					break
 				}
@@ -86,9 +87,12 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 			}
 		}
 
-		if err != nil || int64(len(buff)) != chunkLength {
+		if err != nil {
 			log.Printf("Can not stream chunk data of %s. Detail %s\n\n", key, err)
 			return nil, -1, err
+		} else if int64(len(buff)) != chunkLength {
+			log.Printf("Can not stream chunk data of %s. Unexpected received data length\n\n", key)
+			return nil, -1, fmt.Errorf("Unexpected received data length")
 		}
 
 		hashCollection, err = UpdateBasicHashes(hashCollection, buff)
