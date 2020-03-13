@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"fmt"
 	"hash"
 	"hash/crc32"
 	"io"
@@ -64,8 +63,9 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 	}
 	log.Printf("Size %d", *objectSize)
 
-	start := int64(0)
-	step := int64(ChunkSize)
+	result, _ := GetS3ObjectOutput(client, bucket, key)
+	p := make([]byte, ChunkSize)
+
 	for {
 		chunkRange := fmt.Sprintf("bytes: %d-%d", start, minOf(start+step, *objectSize-1))
 		chunkLength := minOf(start+step, *objectSize-1) - start + 1
@@ -91,13 +91,14 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 			return nil, -1, err
 		}
 
-		hashCollection, err = UpdateBasicHashes(hashCollection, buff)
-
-		if err != nil {
-			log.Printf("Can not compute hashes. Detail %s\n\n", err)
+		var err2 error
+		hashCollection, err2 = UpdateBasicHashes(hashCollection, p[:n])
+		if err2 != nil {
+			log.Printf("Can not update hashes. Detail %s\n\n", err2)
+			return nil, int64(-1), err2
 		}
-		start = minOf(start+step, *objectSize-1) + 1
-		if start >= *objectSize {
+
+		if err == io.EOF {
 			break
 		}
 	}
@@ -115,7 +116,6 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 // UpdateBasicHashes updates a hashes collection
 func UpdateBasicHashes(hashCollection *HashCollection, rd []byte) (*HashCollection, error) {
 
-	hashCollection.Reset()
 	multiWriter := io.MultiWriter(hashCollection.Crc32c, hashCollection.Md5, hashCollection.Sha1, hashCollection.Sha256, hashCollection.Sha512)
 	_, err := multiWriter.Write(rd)
 
