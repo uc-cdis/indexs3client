@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -88,38 +87,4 @@ func GetObjectSize(client *AwsClient, bucket string, key string) (*int64, error)
 		return nil, err
 	}
 	return result.ContentLength, nil
-}
-
-// GetChunkDataFromS3 downloads chunk data from s3
-func GetChunkDataFromS3(client *AwsClient, bucket string, key string, byteRange string) ([]byte, error) {
-
-	svc := s3.New(client.session)
-	input := &s3.GetObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-		Range:  aws.String(byteRange),
-	}
-
-	result, err := svc.GetObject(input)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case s3.ErrCodeNoSuchKey:
-				fmt.Println(s3.ErrCodeNoSuchKey, aerr.Error())
-			default:
-				fmt.Println(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			fmt.Println(err.Error())
-		}
-		return nil, err
-	}
-	body, err := ioutil.ReadAll(result.Body)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	return body, nil
-
 }
