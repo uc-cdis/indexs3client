@@ -64,9 +64,6 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 	}
 	log.Printf("Size %d", *objectSize)
 
-	result, _ := GetS3ObjectOutput(client, bucket, key)
-	p := make([]byte, ChunkSize)
-
 	start := int64(0)
 	step := int64(ChunkSize)
 	for {
@@ -97,7 +94,7 @@ func CalculateBasicHashes(client *AwsClient, bucket string, key string) (*HashIn
 		hashCollection, err = UpdateBasicHashes(hashCollection, buff)
 		if err != nil {
 			log.Printf("Can not compute hashes. Detail %s\n\n", err)
-			return nil, int64(-1), err2
+			return nil, int64(-1), err
 		}
 		start = minOf(start+step, *objectSize-1) + 1
 
