@@ -102,8 +102,10 @@ func IndexS3Object(s3objectURL string) {
 		resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo, []byte(body))
 		if err != nil {
 			retries++
+			log.Printf("Error: %s. Retry: %d", err, retries)
 			time.Sleep(30)
 		} else if resp.StatusCode != 200 {
+			log.Printf("StatusCode: %d. Retry: %d", resp.StatusCode, retries)
 			retries++
 			time.Sleep(30)
 		} else {
