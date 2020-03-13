@@ -79,14 +79,14 @@ func IndexS3Object(s3objectURL string) {
 
 	indexdInfo, _ := getIndexServiceInfo()
 
-	var retries = 0
+	var retries = 10
 	var rev = ""
 
 	for {
 		rev, err = GetIndexdRecordRev(uuid, indexdInfo.URL)
 		if err != nil {
 			retries++
-			time.Sleep(30)
+			time.Sleep(5)
 		}
 		if retries == MaxRetries {
 			log.Println(err)
@@ -103,11 +103,11 @@ func IndexS3Object(s3objectURL string) {
 		if err != nil {
 			retries++
 			log.Printf("Error: %s. Retry: %d", err, retries)
-			time.Sleep(30)
+			time.Sleep(5)
 		} else if resp.StatusCode != 200 {
 			log.Printf("StatusCode: %d. Retry: %d", resp.StatusCode, retries)
 			retries++
-			time.Sleep(30)
+			time.Sleep(5)
 		} else {
 			log.Printf("Finish updating the record %s. Response Status: %s", uuid, resp.Status)
 			break
