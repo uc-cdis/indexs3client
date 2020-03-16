@@ -14,7 +14,6 @@ import (
 )
 
 const ChunkSize = 1024 * 1024 * 64
-const MaxRetries = 10
 
 type HashInfo struct {
 	Crc32c string

@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// MaxRetries maximum number of retries
+const MaxRetries = 10
+
 type IndexdInfo struct {
 	URL      string `url`
 	Username string `username`
@@ -84,6 +87,8 @@ func IndexS3Object(s3objectURL string) {
 		if err != nil {
 			retries++
 			time.Sleep(5 * time.Second)
+		} else {
+			break
 		}
 		if retries == MaxRetries {
 			log.Panicf("Can not get rev for %s. Detail %s", uuid, err)
