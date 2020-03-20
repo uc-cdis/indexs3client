@@ -116,9 +116,9 @@ func IndexS3Object(s3objectURL string) {
 
 		if retries == MaxRetries {
 			if err == nil {
-				log.Panicf("Can not update %s with hash info. Status code %d", uuid, resp.StatusCode)
+				log.Panicf("Can not update %s with hash info. Body %s. Status code %d", uuid, body, resp.StatusCode)
 			} else {
-				log.Panicf("Can not update %s with hash info. Detail %s", uuid, err)
+				log.Panicf("Can not update %s with hash info. Body %s. Detail %s", uuid, body, err)
 			}
 			break
 		}
