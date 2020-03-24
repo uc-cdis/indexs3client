@@ -12,7 +12,7 @@ import (
 )
 
 // MaxRetries maximum number of retries
-const MaxRetries = 1
+const MaxRetries = 5
 
 type IndexdInfo struct {
 	URL      string `url`
@@ -87,6 +87,9 @@ func IndexS3Object(s3objectURL string) {
 		if err != nil {
 			retries++
 			time.Sleep(5 * time.Second)
+		} else if rev == "" {
+			log.Println("The file already has size and hashes")
+			return
 		} else {
 			break
 		}
@@ -110,7 +113,7 @@ func IndexS3Object(s3objectURL string) {
 			retries++
 			time.Sleep(5 * time.Second)
 		} else {
-			log.Printf("Finish updating the record %s. Response Status: %s. Body %s", uuid, resp.Status, body)
+			log.Printf("Finish updating the record %s. Response Status: %d. Body %s", uuid, resp.StatusCode, body)
 			break
 		}
 
