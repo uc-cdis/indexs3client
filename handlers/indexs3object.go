@@ -27,9 +27,13 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 	var data interface{}
 
 	json.Unmarshal(body, &data)
-	data = data.(map[string]interface{})["rev"]
+	rev := data.(map[string]interface{})["rev"]
+	size := data.(map[string]interface{})["size"]
 
-	return data.(string), nil
+	if size == nil {
+		return rev.(string), nil
+	}
+	return "", nil
 }
 
 // UpdateIndexdRecord updates the record with size, urls and hashes endcoded in body
