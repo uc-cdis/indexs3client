@@ -14,6 +14,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 )
 
+// MaxRetries maximum number of retries
+const MaxRetries = 10
+
 type IndexdInfo struct {
 	URL              string `json:"url"`
 	Username         string `json:"username"`
@@ -60,8 +63,7 @@ func RunIndexS3Object(s3objectURL string, indexdInfo *IndexdInfo, client *AwsCli
 	s3objectURL, _ = url.QueryUnescape(s3objectURL)
 	u, err := url.Parse(s3objectURL)
 	if err != nil {
-		log.Printf("Wrong url format %s\n", s3objectURL)
-		return
+		log.Panicf("Wrong url format %s\n", s3objectURL)
 	}
 	bucket, key := u.Host, u.Path
 	var uuid, rev string
@@ -168,8 +170,7 @@ func RunIndexS3Object(s3objectURL string, indexdInfo *IndexdInfo, client *AwsCli
 	hashes, objectSize, err := client.CalculateBasicHashes(bucket, key)
 
 	if err != nil {
-		log.Printf("Can not compute hashes for %s. Detail %s ", key, err)
-		return
+		log.Panicf("Can not compute hashes for %s. Detail %s ", key, err)
 	}
 	log.Printf("Finish to compute hashes for %s", key)
 

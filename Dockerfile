@@ -1,6 +1,7 @@
-FROM golang:1.13.1 as build-deps
-RUN mkdir -p /indexs3client
-WORKDIR /indexs3client
+FROM golang:1.14 as build-deps
+
+RUN mkdir -p /go/src/github.com/uc-cdis/indexs3client
+WORKDIR /go/src/github.com/uc-cdis/indexs3client
 ADD . .
 RUN go build -tags netgo -ldflags '-extldflags "-static"' -o indexs3client
 
