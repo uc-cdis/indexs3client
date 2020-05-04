@@ -9,6 +9,6 @@ RUN go build -tags netgo -ldflags '-extldflags "-static"' -o indexs3client
 # Resulting in significantly smaller docker image size
 FROM scratch
 COPY --from=build-deps /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=build-deps /indexs3client/indexs3client /indexs3client
+COPY --from=build-deps /go/src/github.com/uc-cdis/indexs3client/indexs3client /indexs3client
 
 CMD ["/indexs3client"]
