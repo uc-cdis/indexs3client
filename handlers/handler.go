@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 )
@@ -67,7 +68,7 @@ func RunIndexS3Object(s3objectURL string, indexdInfo *IndexdInfo, client *AwsCli
 	}
 	bucket, key := u.Host, u.Path
 	var uuid, rev string
-
+	var retries = 0
 	// Create the indexd record if this is an ExtramuralBucket and it doesn't already exist
 	if indexdInfo.ExtramuralBucket {
 
@@ -94,13 +95,25 @@ func RunIndexS3Object(s3objectURL string, indexdInfo *IndexdInfo, client *AwsCli
 			}
 
 			// Find rev to update with hashes
-			foundRev, err := GetIndexdRecordRev(foundRecords[0].DID, indexdInfo.URL)
-			if err != nil {
-				log.Println(err)
-				return
-			}
+			// foundRev, err := GetIndexdRecordRev(foundRecords[0].DID, indexdInfo.URL)
+			// if err != nil {
+			// 	log.Println(err)
+			// 	return
+			// }
+			retries = 0
 			uuid = foundRecords[0].DID
-			rev = foundRev
+			for {
+				rev, err = GetIndexdRecordRev(foundRecords[0].DID, indexdInfo.URL)
+				if err != nil {
+					retries++
+					time.Sleep(5 * time.Second)
+				} else {
+					break
+				}
+				if retries == MaxRetries {
+					log.Panicf("Can not get rev for %s. Detail %s", uuid, err)
+				}
+			}
 
 		} else { // yes
 			var uploader string
@@ -158,12 +171,22 @@ func RunIndexS3Object(s3objectURL string, indexdInfo *IndexdInfo, client *AwsCli
 			panic("Are you trying to index a non-Gen3 managed S3 bucket? Try setting 'extramural_bucket: true' in the config, no UUID found in object path.")
 		}
 
-		foundRev, err := GetIndexdRecordRev(uuid, indexdInfo.URL)
-		if err != nil {
-			log.Println(err)
-			return
+		retries = 0
+		for {
+			rev, err = GetIndexdRecordRev(uuid, indexdInfo.URL)
+			if err != nil {
+				retries++
+				time.Sleep(5 * time.Second)
+			} else if rev == "" {
+				log.Println("The file already has size and hashes")
+				return
+			} else {
+				break
+			}
+			if retries == MaxRetries {
+				log.Panicf("Can not get rev for %s. Detail %s", uuid, err)
+			}
 		}
-		rev = foundRev
 	}
 
 	log.Printf("Start to compute hashes for %s", key)
@@ -182,12 +205,31 @@ func RunIndexS3Object(s3objectURL string, indexdInfo *IndexdInfo, client *AwsCli
 		objectSize, []string{s3objectURL}, hashes,
 	})
 
-	resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo, body)
-	if err != nil {
-		log.Println(err)
-	}
+	retries = 0
+	for {
+		resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo, []byte(body))
+		if err != nil {
+			retries++
+			log.Printf("Error: %s. Retry: %d", err, retries)
+			time.Sleep(5 * time.Second)
+		} else if resp.StatusCode != 200 {
+			log.Printf("StatusCode: %d. Retry: %d", resp.StatusCode, retries)
+			retries++
+			time.Sleep(5 * time.Second)
+		} else {
+			log.Printf("Finish updating the record %s. Response Status: %d. Body %s", uuid, resp.StatusCode, body)
+			break
+		}
 
-	log.Printf("Finish updating the record. Response Status: %s", resp.Status)
+		if retries == MaxRetries {
+			if err == nil {
+				log.Panicf("Can not update %s with hash info. Body %s. Status code %d. Detail %s", uuid, body, resp.StatusCode, err)
+			} else {
+				log.Panicf("Can not update %s with hash info. Body %s. Detail %s", uuid, body, err)
+			}
+			break
+		}
+	}
 
 	log.Printf("Done.")
 }
