@@ -1,4 +1,4 @@
-FROM golang:1.10 as build-deps
+FROM golang:1.14 as build-deps
 
 RUN mkdir -p /go/src/github.com/uc-cdis/indexs3client
 WORKDIR /go/src/github.com/uc-cdis/indexs3client

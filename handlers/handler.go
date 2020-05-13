@@ -8,7 +8,11 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
+
+// MaxRetries maximum number of retries
+const MaxRetries = 5
 
 type IndexdInfo struct {
 	URL      string `url`
@@ -42,8 +46,7 @@ func IndexS3Object(s3objectURL string) {
 	s3objectURL, _ = url.QueryUnescape(s3objectURL)
 	u, err := url.Parse(s3objectURL)
 	if err != nil {
-		log.Printf("Wrong url format %s\n", s3objectURL)
-		return
+		log.Panicf("Wrong url format %s\n", s3objectURL)
 	}
 	bucket, key := u.Host, u.Path
 
@@ -63,33 +66,64 @@ func IndexS3Object(s3objectURL string) {
 
 	client, err := CreateNewAwsClient()
 	if err != nil {
-		log.Printf("Can not create AWS client. Detail %s\n\n", err)
-		return
+		log.Panicf("Can not create AWS client. Detail %s\n\n", err)
 	}
 
 	log.Printf("Start to compute hashes for %s", key)
 	hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
 
 	if err != nil {
-		log.Printf("Can not compute hashes for %s. Detail %s ", key, err)
-		return
+		log.Panicf("Can not compute hashes for %s. Detail %s ", key, err)
 	}
 	log.Printf("Finish to compute hashes for %s", key)
 
 	indexdInfo, _ := getIndexServiceInfo()
-	rev, err := GetIndexdRecordRev(uuid, indexdInfo.URL)
-	if err != nil {
-		log.Println(err)
-		return
+
+	var retries = 0
+	var rev = ""
+
+	for {
+		rev, err = GetIndexdRecordRev(uuid, indexdInfo.URL)
+		if err != nil {
+			retries++
+			time.Sleep(5 * time.Second)
+		} else if rev == "" {
+			log.Println("The file already has size and hashes")
+			return
+		} else {
+			break
+		}
+		if retries == MaxRetries {
+			log.Panicf("Can not get rev for %s. Detail %s", uuid, err)
+		}
 	}
 
 	body := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
 		objectSize, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
-	resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo, []byte(body))
-	if err != nil {
-		log.Println(err)
+
+	retries = 0
+	for {
+		resp, err := UpdateIndexdRecord(uuid, rev, indexdInfo, []byte(body))
+		if err != nil {
+			retries++
+			log.Printf("Error: %s. Retry: %d", err, retries)
+			time.Sleep(5 * time.Second)
+		} else if resp.StatusCode != 200 {
+			log.Printf("StatusCode: %d. Retry: %d", resp.StatusCode, retries)
+			retries++
+			time.Sleep(5 * time.Second)
+		} else {
+			log.Printf("Finish updating the record %s. Response Status: %d. Body %s", uuid, resp.StatusCode, body)
+			break
+		}
+
+		if retries == MaxRetries {
+			if err == nil {
+				log.Panicf("Can not update %s with hash info. Body %s. Status code %d. Detail %s", uuid, body, resp.StatusCode, err)
+			} else {
+				log.Panicf("Can not update %s with hash info. Body %s. Detail %s", uuid, body, err)
+			}
+			break
+		}
 	}
-
-	log.Printf("Finish updating the record. Response Status: %s", resp.Status)
-
 }
