@@ -86,6 +86,7 @@ func IndexS3Object(s3objectURL string) {
 		rev, err = GetIndexdRecordRev(uuid, indexdInfo.URL)
 		if err != nil {
 			retries++
+			log.Printf("Error: %s. Retry: %d", err, retries)
 			time.Sleep(5 * time.Second)
 		} else if rev == "" {
 			log.Println("The file already has size and hashes")
@@ -94,7 +95,7 @@ func IndexS3Object(s3objectURL string) {
 			break
 		}
 		if retries == MaxRetries {
-			log.Panicf("Can not get rev for %s. Detail %s", uuid, err)
+			log.Panicf("Can not get record %s from indexd. Error message %s", uuid, err)
 		}
 	}
 
