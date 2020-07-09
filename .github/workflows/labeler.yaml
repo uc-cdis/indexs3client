@@ -1,8 +1,6 @@
 name: "Pull Request Labeler"
 on:
 - pull_request
-test-apis-dataUploadTest:
-- ./**/*
 
 jobs:
   triage:
