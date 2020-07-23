@@ -20,16 +20,25 @@ type AwsClient struct {
 func CreateNewAwsClient() (*AwsClient, error) {
 	client := new(AwsClient)
 
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(os.Getenv("AWS_REGION")),
-		Credentials: credentials.NewStaticCredentials(
-			os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY"), ""),
-	})
+	var sess *session.Session
+	var err error
+	if os.Getenv("AWS_ACCESS_KEY_ID") != "" {
+		sess, err = session.NewSession(&aws.Config{
+			Region: aws.String(os.Getenv("AWS_REGION")),
+			Credentials: credentials.NewStaticCredentials(
+				os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY"), ""),
+		})
+	} else {
+		region := os.Getenv("AWS_REGION")
+		if region == "" {
+			region = "us-east-1"
+		}
+		sess, err = session.NewSession(&aws.Config{Region: aws.String(region)})
 
+	}
 	if err != nil {
 		return nil, err
 	}
-
 	client.session = sess
 	return client, nil
 }
