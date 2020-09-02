@@ -18,6 +18,7 @@ type AwsClient struct {
 	session *session.Session
 }
 
+// JobConfig
 type JobConfig struct {
 	IndexObject map[string]interface{} `json:"index-object"`
 }

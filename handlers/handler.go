@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -33,8 +34,19 @@ func minOf(vars ...int64) int64 {
 }
 func getIndexServiceInfo() (*IndexdInfo, error) {
 	indexdInfo := new(IndexdInfo)
-	if err := json.Unmarshal([]byte(os.Getenv("CONFIG_FILE")), indexdInfo); err != nil {
-		return nil, errors.New("Enviroiment variable CONFIG_FILE is not set correctly")
+	if os.Getenv("CONFIG_FILE") != "" {
+		if err := json.Unmarshal([]byte(os.Getenv("CONFIG_FILE")), indexdInfo); err != nil {
+			return nil, errors.New("Enviroiment variable CONFIG_FILE is not set correctly")
+		}
+	} else {
+		buff, err := ioutil.ReadFile("/creds.json")
+		if err == nil {
+			dataMap := new(JobConfig)
+			_ = json.Unmarshal(buff, &dataMap)
+			indexdInfo.Username = dataMap.IndexObject["indexd_user"].(string)
+			indexdInfo.Password = dataMap.IndexObject["indexd_password"].(string)
+			indexdInfo.URL = dataMap.IndexObject["indexd_url"].(string)
+		}
 	}
 	return indexdInfo, nil
 }
