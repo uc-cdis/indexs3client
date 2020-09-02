@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -16,17 +18,44 @@ type AwsClient struct {
 	session *session.Session
 }
 
+type JobConfig struct {
+	IndexObject map[string]interface{} `index_object`
+}
+
 // CreateNewSession creates an aws s3 session
 func CreateNewAwsClient() (*AwsClient, error) {
 	client := new(AwsClient)
 
 	var sess *session.Session
 	var err error
+	var region string
+	var awsAccessKeyID string
+	var awsSecretAccessKey string
+
 	if os.Getenv("AWS_ACCESS_KEY_ID") != "" {
+		region = os.Getenv("AWS_REGION")
+		awsAccessKeyID = os.Getenv("AWS_ACCESS_KEY_ID")
+		awsSecretAccessKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
+
+	} else {
+		fmt.Println("Try to get credential from the secret")
+		buff, err := ioutil.ReadFile("/creds.json")
+		if err == nil {
+			dataMap := new(JobConfig)
+			_ = json.Unmarshal(buff, &dataMap)
+			newMap := dataMap.IndexObject["job_requires"].(map[string]string)
+			region = string(newMap["region"])
+			awsAccessKeyID = string(newMap["aws_secret_key_id"])
+			awsSecretAccessKey = string(newMap["aws_secret_key"])
+		}
+	}
+
+	if awsAccessKeyID != "" {
+		fmt.Println("access key ", awsAccessKeyID)
 		sess, err = session.NewSession(&aws.Config{
-			Region: aws.String(os.Getenv("AWS_REGION")),
+			Region: aws.String(region),
 			Credentials: credentials.NewStaticCredentials(
-				os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY"), ""),
+				awsAccessKeyID, awsSecretAccessKey, ""),
 		})
 	} else {
 		region := os.Getenv("AWS_REGION")
@@ -34,8 +63,8 @@ func CreateNewAwsClient() (*AwsClient, error) {
 			region = "us-east-1"
 		}
 		sess, err = session.NewSession(&aws.Config{Region: aws.String(region)})
-
 	}
+
 	if err != nil {
 		return nil, err
 	}
