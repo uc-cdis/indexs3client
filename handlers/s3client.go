@@ -47,7 +47,7 @@ func CreateNewAwsClient() (*AwsClient, error) {
 			newMap := dataMap.IndexObject["job_requires"].(map[string]interface{})
 			region = newMap["region"].(string)
 			awsAccessKeyID = newMap["aws_access_key_id"].(string)
-			awsSecretAccessKey = newMap["aws_secret_key"].(string)
+			awsSecretAccessKey = newMap["aws_secret_access_key"].(string)
 		}
 	}
 
