@@ -19,7 +19,7 @@ type AwsClient struct {
 }
 
 type JobConfig struct {
-	IndexObject map[string]interface{} `index_object`
+	IndexObject map[string]interface{} `json:"index-object"`
 }
 
 // CreateNewSession creates an aws s3 session
@@ -43,10 +43,11 @@ func CreateNewAwsClient() (*AwsClient, error) {
 		if err == nil {
 			dataMap := new(JobConfig)
 			_ = json.Unmarshal(buff, &dataMap)
-			newMap := dataMap.IndexObject["job_requires"].(map[string]string)
-			region = string(newMap["region"])
-			awsAccessKeyID = string(newMap["aws_secret_key_id"])
-			awsSecretAccessKey = string(newMap["aws_secret_key"])
+			fmt.Println(dataMap.IndexObject["job_requires"])
+			newMap := dataMap.IndexObject["job_requires"].(map[string]interface{})
+			region = newMap["region"].(string)
+			awsAccessKeyID = newMap["aws_access_key_id"].(string)
+			awsSecretAccessKey = newMap["aws_secret_key"].(string)
 		}
 	}
 
