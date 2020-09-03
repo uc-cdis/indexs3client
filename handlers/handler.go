@@ -32,7 +32,11 @@ func minOf(vars ...int64) int64 {
 
 	return min
 }
+
 func getIndexServiceInfo() (*IndexdInfo, error) {
+	/*
+		The indexd credential can be obtained either by from legacy CONFIG_FILE env or from mounted k8s secret
+	*/
 	indexdInfo := new(IndexdInfo)
 	if os.Getenv("CONFIG_FILE") != "" {
 		if err := json.Unmarshal([]byte(os.Getenv("CONFIG_FILE")), indexdInfo); err != nil {
