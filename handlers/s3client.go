@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -42,24 +43,25 @@ func CreateNewAwsClient() (*AwsClient, error) {
 		fmt.Println("Try to get credential from the secret")
 		buff, err := ioutil.ReadFile("/creds.json")
 		if err == nil {
-			dataMap := new(JobConfig)
-			_ = json.Unmarshal(buff, &dataMap)
-			fmt.Println(dataMap.IndexObject["job_requires"])
-			newMap := dataMap.IndexObject["job_requires"].(map[string]interface{})
-			region = newMap["region"].(string)
-			awsAccessKeyID = newMap["aws_access_key_id"].(string)
-			awsSecretAccessKey = newMap["aws_secret_access_key"].(string)
+			jobConfig := new(JobConfig)
+			if err = json.Unmarshal(buff, &jobConfig); err != nil {
+				return nil, errors.New("Wrong job config detected!")
+			}
+			jobRequired := jobConfig.IndexObject["job_requires"].(map[string]interface{})
+			region = jobRequired["region"].(string)
+			awsAccessKeyID = jobRequired["aws_access_key_id"].(string)
+			awsSecretAccessKey = jobRequired["aws_secret_access_key"].(string)
 		}
 	}
-
+	// Create aws session with provided aws key pair
 	if awsAccessKeyID != "" {
-		fmt.Println("access key ", awsAccessKeyID)
 		sess, err = session.NewSession(&aws.Config{
 			Region: aws.String(region),
 			Credentials: credentials.NewStaticCredentials(
 				awsAccessKeyID, awsSecretAccessKey, ""),
 		})
 	} else {
+		// No credential provided, just use default credential
 		region := os.Getenv("AWS_REGION")
 		if region == "" {
 			region = "us-east-1"
