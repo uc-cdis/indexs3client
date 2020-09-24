@@ -14,6 +14,11 @@ import (
 // MaxRetries maximum number of retries
 const MaxRetries = 5
 
+type ConfigInfo struct {
+    Indexd interface{} `indexd`
+    MetadataService interface{} `metadata_service`
+}
+
 type IndexdInfo struct {
 	URL      string `url`
 	Username string `username`
@@ -32,11 +37,17 @@ func minOf(vars ...int64) int64 {
 	return min
 }
 func getIndexServiceInfo() (*IndexdInfo, error) {
-	indexdInfo := new(IndexdInfo)
-	if err := json.Unmarshal([]byte(os.Getenv("CONFIG_FILE")), indexdInfo); err != nil {
-		return nil, errors.New("Enviroiment variable CONFIG_FILE is not set correctly")
-	}
-	return indexdInfo, nil
+    configInfo := new(ConfigInfo)
+    if err := json.Unmarshal([]byte(os.Getenv("CONFIG_FILE")), configInfo); err != nil {
+        return nil, errors.New("MDS - Environment variable CONFIG_FILE is not set correctly")
+    }
+
+    indexdBytes, _ := json.Marshal(configInfo.Indexd)
+
+    indexdInfo := new(IndexdInfo)
+    json.Unmarshal(indexdBytes, &indexdInfo)
+
+    return indexdInfo, nil
 }
 
 // IndexS3Object indexes s3 object

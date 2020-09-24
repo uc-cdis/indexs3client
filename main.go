@@ -8,5 +8,5 @@ import (
 
 func main() {
 	handlers.IndexS3Object(os.Getenv("INPUT_URL"))
-
+	handlers.UpdateMetadataObject(os.Getenv("INPUT_URL"))
 }
