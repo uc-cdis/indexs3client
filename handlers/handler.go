@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"crypto/tls"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -57,6 +59,7 @@ func getIndexServiceInfo() (*IndexdInfo, error) {
 }
 
 func IndexS3ObjectEmbedded(s3objectURL string, indexdInfo *IndexdInfo, awsConfig *aws.Config) {
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	RunIndexS3Object(s3objectURL, indexdInfo, &AwsClient{awsConfig, nil})
 }
 
