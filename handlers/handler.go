@@ -9,16 +9,12 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	// "time"
-	// "github.com/hashicorp/go-retryablehttp"
 )
 
 // MaxRetries maximum number of retries
 const MaxRetries = 5
 
 type ConfigInfo struct {
-    // Indexd interface{} `indexd`
-    // MetadataService interface{} `metadata_service`
     Indexd IndexdInfo `indexd`
     MetadataService MetadataServiceInfo `metadata_service`
 }
@@ -102,106 +98,36 @@ func IndexS3Object(s3objectURL string) {
 	if err != nil {
 		log.Panicf("%s ", err)
 	}
+    // XXX take out
     fmt.Println(configInfo)
     fmt.Println(err)
 
-	// var retries = 0
-	// var rev = ""
-
-	// for {
-		// rev, err = GetIndexdRecordRev(uuid, configInfo.Indexd.URL)
-		// if err != nil {
-			// retries++
-			// log.Printf("Error: %s. Retry: %d", err, retries)
-			// time.Sleep(5 * time.Second)
-		// } else if rev == "" {
-			// log.Println("The file already has size and hashes")
-			// return
-		// } else {
-			// break
-		// }
-		// if retries == MaxRetries {
-			// log.Panicf("Can not get record %s from indexd. Error message %s", uuid, err)
-		// }
-	// }
     rev, err := GetIndexdRecordRev(uuid, configInfo.Indexd.URL)
-    fmt.Println(rev, err)
+    // fmt.Println(rev, err)
 	mdsUploadedBody := fmt.Sprintf(`{"_upload_status": "uploaded", "_filename": "%s"}`, filename)
     if err != nil {
-        log.Panicf("Can not get record %s from indexd. Error message %s", uuid, err)
+        log.Panicf("Can not get record %s from Indexd. Error message %s", uuid, err)
     } else if rev == "" {
-        log.Println("The file already has size and hashes")
-        // XXX error handling
-        UpdateMetadataObject(uuid, &configInfo.MetadataService, []byte(mdsUploadedBody))
+        log.Printf("Indexd record with guid %s already has size and hashes", uuid)
+        updateMetadataObjectWrapper(uuid, configInfo, mdsUploadedBody)
         return
     }
 	log.Printf("Got rev %s from Indexd for record %s", rev, uuid)
 
-	resp, err := UpdateMetadataObject(uuid, &configInfo.MetadataService, []byte(`{"_upload_status": "calculating hashes and size"}`))
-    if err != nil {
-		log.Printf("Error: %s", err)
-    } else if resp.StatusCode != http.StatusOK {
-        log.Printf("Could not update metadata object _upload_status to calculating for metadata object %s. resp.StatusCode: %s", uuid, resp.StatusCode)
-    } else {
-        log.Printf("Updated _upload_status field to calculating for metadata object %s", uuid)
-    }
+    updateMetadataObjectWrapper(uuid, configInfo, `{"_upload_status": "indexs3client job calculating hashes and size"}`)
 
+    // XXX use real hashes
 	// indexdHashesBody := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
 		// objectSize, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
 	indexdHashesBody := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
 		objectSize, s3objectURL, "1", "2", "3", "4", "5")
-    // fmt.Println(indexdHashesBody)
-	resp, err = UpdateIndexdRecord(uuid, rev, &configInfo.Indexd, []byte(indexdHashesBody))
+    resp, err := UpdateIndexdRecord(uuid, rev, &configInfo.Indexd, []byte(indexdHashesBody))
     if err != nil {
-		log.Panicf("Could not update Indexd record %s with hash info. Hash info %s. Detail %s", uuid, indexdHashesBody, err)
+        log.Panicf("Could not update Indexd record %s. Request Body: %s. Error: %s", uuid, indexdHashesBody, err)
 	} else if resp.StatusCode != http.StatusOK {
-		log.Panicf("Could not update Indexd record %s with hash info. Hash info: %s. Status code: %d", uuid, indexdHashesBody, resp.StatusCode)
+        log.Panicf("Could not update Indexd record %s. Request Body: %s. Response Status Code: %d", uuid, indexdHashesBody, resp.StatusCode)
 	}
-	log.Printf("Finished updating Indexd record %s with hash info. Response status: %d. Hash info: %s", uuid, resp.StatusCode, indexdHashesBody)
+    log.Printf("Updated Indexd record %s with hash info. Request Body: %s, Response Status Code: %d", uuid, indexdHashesBody, resp.StatusCode)
 
-    resp, err = UpdateMetadataObject(uuid, &configInfo.MetadataService, []byte(mdsUploadedBody))
-    if err != nil {
-		log.Printf("Error: %s", err)
-    } else if resp.StatusCode != http.StatusOK {
-        log.Printf("Could not update metadata object _upload_status to updated for metadata object %s. resp.StatusCode: %s", uuid, resp.StatusCode)
-    } else {
-        log.Printf("Updated _upload_status field to uploaded for metadata object %s", uuid)
-    }
-
-	// retries = 0
-	// for {
-		// resp, err := UpdateIndexdRecord(uuid, rev, &configInfo.Indexd, []byte(body))
-		// if err != nil {
-			// retries++
-			// log.Printf("Error: %s. Retry: %d", err, retries)
-			// time.Sleep(5 * time.Second)
-		// } else if resp.StatusCode != 200 {
-			// log.Printf("StatusCode: %d. Retry: %d", resp.StatusCode, retries)
-			// retries++
-			// time.Sleep(5 * time.Second)
-		// } else {
-			// log.Printf("Finish updating the record %s. Response Status: %d. Body %s", uuid, resp.StatusCode, body)
-			// break
-		// }
-
-		// if retries == MaxRetries {
-			// if err == nil {
-				// log.Panicf("Can not update %s with hash info. Body %s. Status code %d. Detail %s", uuid, body, resp.StatusCode, err)
-			// } else {
-				// log.Panicf("Can not update %s with hash info. Body %s. Detail %s", uuid, body, err)
-			// }
-			// break
-		// }
-	// }
+    updateMetadataObjectWrapper(uuid, configInfo, mdsUploadedBody)
 }
-
-// func updateMetadataObjectWrapper(uuid string, mdsInfo *MetadataServiceInfo, body string) {
-    // resp, err = UpdateMetadataObject(uuid, &configInfo.MetadataService, []byte(body))
-    // if err != nil {
-		// log.Printf("Error: %s", err)
-    // } else if resp.StatusCode != http.StatusOK {
-        // log.Printf("Could not update metadata object _upload_status to updated for metadata object %s. resp.StatusCode: %s", uuid, resp.StatusCode)
-    // } else {
-        // log.Printf("Updated _upload_status field to uploaded for metadata object %s", uuid)
-    // }
-// }
