@@ -118,6 +118,7 @@ func IndexS3Object(s3objectURL string) {
         updateMetadataObjectWrapper(uuid, configInfo, mdsUploadedBody)
         return
     }
+    log.Printf("Got rev %s from Indexd for record %s", rev, uuid)
 
     updateMetadataObjectWrapper(uuid, configInfo, `{"_upload_status": "indexs3client job calculating hashes and size"}`)
 
@@ -133,7 +134,7 @@ func IndexS3Object(s3objectURL string) {
 	} else if resp.StatusCode != http.StatusOK {
         log.Panicf("Could not update Indexd record %s. Response Status Code: %d", uuid, resp.StatusCode)
 	}
-    log.Printf("Updated Indexd record %s with hash info. Response Status Code: %d", uuid, indexdHashesBody, resp.StatusCode)
+    log.Printf("Updated Indexd record %s with hash info. Response Status Code: %d", uuid, resp.StatusCode)
 
     updateMetadataObjectWrapper(uuid, configInfo, mdsUploadedBody)
 }
