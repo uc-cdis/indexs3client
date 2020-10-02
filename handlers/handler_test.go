@@ -8,6 +8,7 @@ import (
 	"github.com/magiconair/properties/assert"
 )
 
+// return Indexd config
 func makeImageConfigString() string {
 	return `{
 				"url": "http://indexd-service/",
@@ -16,6 +17,7 @@ func makeImageConfigString() string {
 		  	}`
 }
 
+// Test that Indexd config can be marshalled into IndexdInfo struct
 func TestHandler(t *testing.T) {
 	indexdInfo := new(IndexdInfo)
 	if err := json.Unmarshal([]byte(makeImageConfigString()), indexdInfo); err != nil {
@@ -28,6 +30,7 @@ func TestHandler(t *testing.T) {
 
 }
 
+// Test getConfigInfo function inputting only Indexd config
 func TestGetConfigInfoUsingOnlyIndexdCreds(t *testing.T) {
 	jsonConfigInfo :=
 		`
@@ -48,6 +51,7 @@ func TestGetConfigInfoUsingOnlyIndexdCreds(t *testing.T) {
 	assert.Equal(t, configInfo.MetadataService, MetadataServiceInfo{})
 }
 
+// Test getConfigInfo function inputting only nested Indexd config
 func TestGetConfigInfoUsingOnlyNestedIndexdCreds(t *testing.T) {
 	jsonConfigInfo :=
 		`
@@ -71,6 +75,8 @@ func TestGetConfigInfoUsingOnlyNestedIndexdCreds(t *testing.T) {
 	assert.Equal(t, configInfo.MetadataService, MetadataServiceInfo{})
 }
 
+// Test getConfigInfo function inputting nested Indexd and Metadata Service
+// configs
 func TestGetConfigInfoUsingIndexdAndMDSCreds(t *testing.T) {
 	jsonConfigInfo :=
 		`
@@ -101,6 +107,7 @@ func TestGetConfigInfoUsingIndexdAndMDSCreds(t *testing.T) {
 	assert.Equal(t, configInfo.MetadataService.Password, "paws")
 }
 
+// Test getConfigInfo function inputting only nested Metadata Service config
 func TestGetConfigInfoUsingOnlyMDSCreds(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
@@ -125,6 +132,7 @@ func TestGetConfigInfoUsingOnlyMDSCreds(t *testing.T) {
 	getConfigInfo()
 }
 
+// Test getConfigInfo function inputting extra service config
 func TestGetConfigInfoUsingExtraServiceInfo(t *testing.T) {
 	jsonConfigInfo :=
 		`

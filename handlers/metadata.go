@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 )
 
+// Checks for presence of MDS config, calls UpdateMetadataObject, and logs info
 func updateMetadataObjectWrapper(uuid string, configInfo *ConfigInfo, body string) {
 	if configInfo.MetadataService != (MetadataServiceInfo{}) {
 		log.Printf("Attempting to update object with guid %s in Metadata Service. Request Body: %s", uuid, body)
@@ -24,6 +25,7 @@ func updateMetadataObjectWrapper(uuid string, configInfo *ConfigInfo, body strin
 	}
 }
 
+// Updates Metadata Service object specified by uuid with provided body
 func UpdateMetadataObject(uuid string, mdsInfo *MetadataServiceInfo, body []byte) (*http.Response, error) {
 	endpoint := mdsInfo.URL + "/metadata/" + uuid + "?merge=True"
 	req, err := retryablehttp.NewRequest("PUT", endpoint, bytes.NewBuffer(body))

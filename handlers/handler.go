@@ -30,6 +30,8 @@ type MetadataServiceInfo struct {
 	Password string `password`
 }
 
+// Read Indexd and Metadata Service config info from CONFIG_FILE into
+// ConfigInfo struct. Panic if Indexd creds could not be found
 func getConfigInfo() *ConfigInfo {
 	configInfo := new(ConfigInfo)
 	configBytes := []byte(os.Getenv("CONFIG_FILE"))
@@ -56,9 +58,9 @@ func getConfigInfo() *ConfigInfo {
 	return configInfo
 }
 
-// IndexS3Object indexes s3 object
-// The fuction does several things. It first downloads the object from
-// S3, computes size and hashes, and update indexd
+// IndexS3Object indexes s3 object The fuction does several things. It
+// downloads the object from S3, computes size and hashes, and updates Indexd
+// and potentially Metadata Service
 func IndexS3Object(s3objectURL string) {
 	configInfo := getConfigInfo()
 
