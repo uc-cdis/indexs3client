@@ -12,7 +12,7 @@ import (
 
 // GetIndexdRecordRev gets record rev
 func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
-    req, err := retryablehttp.NewRequest("GET", indexURL+"/"+uuid, nil)
+	req, err := retryablehttp.NewRequest("GET", indexURL+"/"+uuid, nil)
 	client := retryablehttp.NewClient()
 	client.RetryMax = MaxRetries
 	resp, err := client.Do(req)

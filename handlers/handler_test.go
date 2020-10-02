@@ -30,7 +30,7 @@ func TestHandler(t *testing.T) {
 
 func TestGetConfigInfoUsingOnlyIndexdCreds(t *testing.T) {
 	jsonConfigInfo :=
-	`
+		`
 	{
 		"url": "http://indexd-service/index",
 		"username": "mr happy cat",
@@ -50,7 +50,7 @@ func TestGetConfigInfoUsingOnlyIndexdCreds(t *testing.T) {
 
 func TestGetConfigInfoUsingOnlyNestedIndexdCreds(t *testing.T) {
 	jsonConfigInfo :=
-	`
+		`
 	{
 		"indexd": {
 			"url": "http://indexd-service/index",
@@ -73,7 +73,7 @@ func TestGetConfigInfoUsingOnlyNestedIndexdCreds(t *testing.T) {
 
 func TestGetConfigInfoUsingIndexdAndMDSCreds(t *testing.T) {
 	jsonConfigInfo :=
-	`
+		`
 	{
 		"indexd": {
 			"url": "http://indexd-service/index",
@@ -109,7 +109,7 @@ func TestGetConfigInfoUsingOnlyMDSCreds(t *testing.T) {
 	}()
 
 	jsonConfigInfo :=
-	`
+		`
 	{
 		"metadataService": {
 			"url": "http://revproxy-service/mds",
@@ -127,7 +127,7 @@ func TestGetConfigInfoUsingOnlyMDSCreds(t *testing.T) {
 
 func TestGetConfigInfoUsingExtraServiceInfo(t *testing.T) {
 	jsonConfigInfo :=
-	`
+		`
 	{
 		"indexd": {
 			"url": "http://indexd-service/index",
