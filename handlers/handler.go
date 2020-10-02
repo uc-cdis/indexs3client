@@ -66,7 +66,6 @@ func IndexS3Object(s3objectURL string) {
 		log.Panicf("Wrong url format %s\n", s3objectURL)
 	}
 	bucket, key := u.Host, u.Path
-	// _, key := u.Host, u.Path
 
 	// key looks like one of these:
 	//
@@ -81,12 +80,7 @@ func IndexS3Object(s3objectURL string) {
 	} else {
 		uuid = strings.Join(split_key[:len(split_key)-1], "/")
 	}
-    // fmt.Println(key)
-    // fmt.Println(split_key)
-    // fmt.Println(len(split_key))
-    // fmt.Println(uuid)
 	filename := split_key[len(split_key)-1]
-    // fmt.Println(filename)
 
     client, err := CreateNewAwsClient()
     if err != nil {
@@ -95,8 +89,6 @@ func IndexS3Object(s3objectURL string) {
 
     log.Printf("Start to compute hashes for %s", key)
     hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
-    // XXX take out
-	// _, objectSize := new(HashInfo), 42
 
 	if err != nil {
 		log.Panicf("Can not compute hashes for %s. Detail %s ", key, err)
@@ -104,12 +96,9 @@ func IndexS3Object(s3objectURL string) {
 	log.Printf("Finish to compute hashes for %s", key)
 
 	configInfo := getConfigInfo()
-    // XXX take out
-    fmt.Println(configInfo)
 
     log.Printf("Attempting to get rev for record %s in Indexd", uuid)
     rev, err := GetIndexdRecordRev(uuid, configInfo.Indexd.URL)
-    // fmt.Println(rev, err)
 	mdsUploadedBody := fmt.Sprintf(`{"_upload_status": "uploaded", "_filename": "%s"}`, filename)
     if err != nil {
         log.Panicf("Can not get record %s from Indexd. Error message %s", uuid, err)
@@ -122,11 +111,8 @@ func IndexS3Object(s3objectURL string) {
 
     updateMetadataObjectWrapper(uuid, configInfo, `{"_upload_status": "indexs3client job calculating hashes and size"}`)
 
-    // XXX use real hashes
     indexdHashesBody := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
         objectSize, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
-	// indexdHashesBody := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
-		// objectSize, s3objectURL, "1", "2", "3", "4", "5")
     log.Printf("Attempting to update Indexd record %s. Request Body: %s", uuid, indexdHashesBody)
     resp, err := UpdateIndexdRecord(uuid, rev, &configInfo.Indexd, []byte(indexdHashesBody))
     if err != nil {
