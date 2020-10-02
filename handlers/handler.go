@@ -60,6 +60,8 @@ func getConfigInfo() (*ConfigInfo) {
 // The fuction does several things. It first downloads the object from
 // S3, computes size and hashes, and update indexd
 func IndexS3Object(s3objectURL string) {
+    configInfo := getConfigInfo()
+
 	s3objectURL, _ = url.QueryUnescape(s3objectURL)
 	u, err := url.Parse(s3objectURL)
 	if err != nil {
@@ -82,21 +84,6 @@ func IndexS3Object(s3objectURL string) {
 	}
 	filename := split_key[len(split_key)-1]
 
-    client, err := CreateNewAwsClient()
-    if err != nil {
-        log.Panicf("Can not create AWS client. Detail %s\n\n", err)
-    }
-
-    log.Printf("Start to compute hashes for %s", key)
-    hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
-
-	if err != nil {
-		log.Panicf("Can not compute hashes for %s. Detail %s ", key, err)
-	}
-	log.Printf("Finish to compute hashes for %s", key)
-
-	configInfo := getConfigInfo()
-
     log.Printf("Attempting to get rev for record %s in Indexd", uuid)
     rev, err := GetIndexdRecordRev(uuid, configInfo.Indexd.URL)
 	mdsUploadedBody := fmt.Sprintf(`{"_upload_status": "uploaded", "_filename": "%s"}`, filename)
@@ -110,6 +97,20 @@ func IndexS3Object(s3objectURL string) {
     log.Printf("Got rev %s from Indexd for record %s", rev, uuid)
 
     updateMetadataObjectWrapper(uuid, configInfo, `{"_upload_status": "indexs3client job calculating hashes and size"}`)
+
+    client, err := CreateNewAwsClient()
+    if err != nil {
+        log.Panicf("Can not create AWS client. Detail %s\n\n", err)
+    }
+
+    log.Printf("Start to compute hashes for %s", key)
+    hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
+
+	if err != nil {
+		log.Panicf("Can not compute hashes for %s. Detail %s ", key, err)
+	}
+	log.Printf("Finish to compute hashes for %s", key)
+
 
     indexdHashesBody := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
         objectSize, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
