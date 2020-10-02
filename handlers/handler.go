@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"log"
@@ -31,21 +30,30 @@ type MetadataServiceInfo struct {
     Password string `password`
 }
 
-func getConfigInfo() (*ConfigInfo, error) {
+func getConfigInfo() (*ConfigInfo) {
     configInfo := new(ConfigInfo)
 	configBytes := []byte(os.Getenv("CONFIG_FILE"))
+    log.Printf("Attempting to unmarshal both Indexd and Metadata Service configs from JSON in CONFIG_FILE env variable")
     if err := json.Unmarshal(configBytes, configInfo); err != nil {
-        return nil, errors.New("Environment variable CONFIG_FILE is not set correctly")
+        log.Panicf("Could not unmarshal JSON in CONFIG_FILE env variable: %s", err)
     }
 	if configInfo.Indexd == (IndexdInfo{}) {
-		// XXX log
-		fmt.Println("Defaulting to Indexd creds")
+        log.Printf("Could not find required Indexd config when unmarshalling both Indexd and Metadata Service configs. Trying again to only unmarshal Indexd config")
 		if err := json.Unmarshal(configBytes, &configInfo.Indexd); err != nil {
-			return nil, errors.New("Environment variable CONFIG_FILE is not set correctly")
+            log.Panicf("Could not unmarshal JSON in CONFIG_FILE env variable: %s", err)
 		}
+        if configInfo.Indexd == (IndexdInfo{}) {
+            log.Panicf("Could not find required Indexd config in JSON in CONFIG_FILE env variable")
+        }
 	}
+    log.Printf("Indexd config was unmarshalled")
+	if configInfo.MetadataService != (MetadataServiceInfo{}) {
+        log.Printf("Metadata Service config was unmarshalled")
+    } else {
+        log.Printf("Metadata Service config was not unmarshalled")
+    }
 
-    return configInfo, nil
+    return configInfo
 }
 
 // IndexS3Object indexes s3 object
@@ -57,7 +65,8 @@ func IndexS3Object(s3objectURL string) {
 	if err != nil {
 		log.Panicf("Wrong url format %s\n", s3objectURL)
 	}
-	_, key := u.Host, u.Path
+	bucket, key := u.Host, u.Path
+	// _, key := u.Host, u.Path
 
 	// key looks like one of these:
 	//
@@ -79,29 +88,26 @@ func IndexS3Object(s3objectURL string) {
 	filename := split_key[len(split_key)-1]
     // fmt.Println(filename)
 
-	// client, err := CreateNewAwsClient()
-	// if err != nil {
-		// log.Panicf("Can not create AWS client. Detail %s\n\n", err)
-	// }
+    client, err := CreateNewAwsClient()
+    if err != nil {
+        log.Panicf("Can not create AWS client. Detail %s\n\n", err)
+    }
 
-	// log.Printf("Start to compute hashes for %s", key)
-	// hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
-	_, objectSize := new(HashInfo), 42
+    log.Printf("Start to compute hashes for %s", key)
+    hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
+    // XXX take out
+	// _, objectSize := new(HashInfo), 42
 
 	if err != nil {
 		log.Panicf("Can not compute hashes for %s. Detail %s ", key, err)
 	}
 	log.Printf("Finish to compute hashes for %s", key)
 
-    // XXX error handling
-	configInfo, err := getConfigInfo()
-	if err != nil {
-		log.Panicf("%s ", err)
-	}
+	configInfo := getConfigInfo()
     // XXX take out
     fmt.Println(configInfo)
-    fmt.Println(err)
 
+    log.Printf("Attempting to get rev for record %s in Indexd", uuid)
     rev, err := GetIndexdRecordRev(uuid, configInfo.Indexd.URL)
     // fmt.Println(rev, err)
 	mdsUploadedBody := fmt.Sprintf(`{"_upload_status": "uploaded", "_filename": "%s"}`, filename)
@@ -112,22 +118,22 @@ func IndexS3Object(s3objectURL string) {
         updateMetadataObjectWrapper(uuid, configInfo, mdsUploadedBody)
         return
     }
-	log.Printf("Got rev %s from Indexd for record %s", rev, uuid)
 
     updateMetadataObjectWrapper(uuid, configInfo, `{"_upload_status": "indexs3client job calculating hashes and size"}`)
 
     // XXX use real hashes
+    indexdHashesBody := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
+        objectSize, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
 	// indexdHashesBody := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
-		// objectSize, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
-	indexdHashesBody := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
-		objectSize, s3objectURL, "1", "2", "3", "4", "5")
+		// objectSize, s3objectURL, "1", "2", "3", "4", "5")
+    log.Printf("Attempting to update Indexd record %s. Request Body: %s", uuid, indexdHashesBody)
     resp, err := UpdateIndexdRecord(uuid, rev, &configInfo.Indexd, []byte(indexdHashesBody))
     if err != nil {
-        log.Panicf("Could not update Indexd record %s. Request Body: %s. Error: %s", uuid, indexdHashesBody, err)
+        log.Panicf("Could not update Indexd record %s. Error: %s", uuid, err)
 	} else if resp.StatusCode != http.StatusOK {
-        log.Panicf("Could not update Indexd record %s. Request Body: %s. Response Status Code: %d", uuid, indexdHashesBody, resp.StatusCode)
+        log.Panicf("Could not update Indexd record %s. Response Status Code: %d", uuid, resp.StatusCode)
 	}
-    log.Printf("Updated Indexd record %s with hash info. Request Body: %s, Response Status Code: %d", uuid, indexdHashesBody, resp.StatusCode)
+    log.Printf("Updated Indexd record %s with hash info. Response Status Code: %d", uuid, indexdHashesBody, resp.StatusCode)
 
     updateMetadataObjectWrapper(uuid, configInfo, mdsUploadedBody)
 }

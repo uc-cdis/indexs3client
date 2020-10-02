@@ -36,5 +36,10 @@ func UpdateMetadataObject(uuid string, mdsInfo *MetadataServiceInfo, body []byte
 
 	client := retryablehttp.NewClient()
 	client.RetryMax = MaxRetries
-	return client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return resp, err
 }

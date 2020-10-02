@@ -24,10 +24,9 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// XXX why?
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("Can not get rev of the record %s. IndexURL %s. Status code: %d", uuid, indexURL, resp.StatusCode)
 	}
 
@@ -58,5 +57,10 @@ func UpdateIndexdRecord(uuid, rev string, indexdInfo *IndexdInfo, body []byte) (
 
 	client := retryablehttp.NewClient()
 	client.RetryMax = MaxRetries
-	return client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return resp, err
 }
