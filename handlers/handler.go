@@ -106,15 +106,17 @@ func IndexS3Object(s3objectURL string) {
 
 	updateMetadataObjectWrapper(uuid, configInfo, `{"_upload_status": "processing"}`)
 
+	var mdsErrorBody string = `{"_upload_status": "error"}`
 	client, err := CreateNewAwsClient()
 	if err != nil {
+		updateMetadataObjectWrapper(uuid, configInfo, mdsErrorBody)
 		log.Panicf("Can not create AWS client. Detail %s\n\n", err)
 	}
 
 	log.Printf("Start to compute hashes for %s", key)
 	hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
-
 	if err != nil {
+		updateMetadataObjectWrapper(uuid, configInfo, mdsErrorBody)
 		log.Panicf("Can not compute hashes for %s. Detail %s ", key, err)
 	}
 	log.Printf("Finish to compute hashes for %s", key)
@@ -124,8 +126,10 @@ func IndexS3Object(s3objectURL string) {
 	log.Printf("Attempting to update Indexd record %s. Request Body: %s", uuid, indexdHashesBody)
 	resp, err := UpdateIndexdRecord(uuid, rev, &configInfo.Indexd, []byte(indexdHashesBody))
 	if err != nil {
+		updateMetadataObjectWrapper(uuid, configInfo, mdsErrorBody)
 		log.Panicf("Could not update Indexd record %s. Error: %s", uuid, err)
 	} else if resp.StatusCode != http.StatusOK {
+		updateMetadataObjectWrapper(uuid, configInfo, mdsErrorBody)
 		log.Panicf("Could not update Indexd record %s. Response Status Code: %d", uuid, resp.StatusCode)
 	}
 	log.Printf("Updated Indexd record %s with hash info. Response Status Code: %d", uuid, resp.StatusCode)
