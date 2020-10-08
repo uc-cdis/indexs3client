@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -69,7 +70,8 @@ func IndexS3Object(s3objectURL string) {
 	if err != nil {
 		log.Panicf("Wrong url format %s\n", s3objectURL)
 	}
-	bucket, key := u.Host, u.Path
+	scheme, bucket, key := u.Scheme, u.Host, u.Path
+	bucketURL := fmt.Sprintf(`%s://%s`, scheme, bucket)
 
 	// key looks like one of these:
 	//
@@ -85,10 +87,14 @@ func IndexS3Object(s3objectURL string) {
 		uuid = strings.Join(split_key[:len(split_key)-1], "/")
 	}
 	filename := split_key[len(split_key)-1]
+	fileExtension := filepath.Ext(filename)
+	if len(fileExtension) > 0 {
+		fileExtension = fileExtension[1:]
+	}
 
 	log.Printf("Attempting to get rev for record %s in Indexd", uuid)
 	rev, err := GetIndexdRecordRev(uuid, configInfo.Indexd.URL)
-	mdsUploadedBody := fmt.Sprintf(`{"_upload_status": "uploaded", "_filename": "%s"}`, filename)
+	mdsUploadedBody := fmt.Sprintf(`{"_bucket": "%s", "_filename": "%s", "_file_extension": "%s", "_upload_status": "uploaded"}`, bucketURL, filename, fileExtension)
 	if err != nil {
 		log.Panicf("Can not get record %s from Indexd. Error message %s", uuid, err)
 	} else if rev == "" {
@@ -98,7 +104,7 @@ func IndexS3Object(s3objectURL string) {
 	}
 	log.Printf("Got rev %s from Indexd for record %s", rev, uuid)
 
-	updateMetadataObjectWrapper(uuid, configInfo, `{"_upload_status": "indexs3client job calculating hashes and size"}`)
+	updateMetadataObjectWrapper(uuid, configInfo, `{"_upload_status": "processing"}`)
 
 	client, err := CreateNewAwsClient()
 	if err != nil {
