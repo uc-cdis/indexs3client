@@ -32,29 +32,28 @@ type MetadataServiceInfo struct {
 }
 
 // Read Indexd and Metadata Service config info from CONFIG_FILE into
-// ConfigInfo struct. Panic if Indexd creds could not be found
+// ConfigInfo struct. Panic if both Indexd config and Metadata Service
+// configs can't be unmarshalled
 func getConfigInfo() *ConfigInfo {
 	configInfo := new(ConfigInfo)
 	configBytes := []byte(os.Getenv("CONFIG_FILE"))
-	log.Printf("Attempting to unmarshal both Indexd and Metadata Service configs from JSON in CONFIG_FILE env variable")
-	if err := json.Unmarshal(configBytes, configInfo); err != nil {
+
+	log.Printf("Attempting to unmarshal Indexd config from JSON in CONFIG_FILE env variable")
+	if err := json.Unmarshal(configBytes, &configInfo.Indexd); err != nil {
 		log.Panicf("Could not unmarshal JSON in CONFIG_FILE env variable: %s", err)
 	}
 	if configInfo.Indexd == (IndexdInfo{}) {
-		log.Printf("Could not find required Indexd config when unmarshalling both Indexd and Metadata Service configs. Trying again to only unmarshal Indexd config")
-		if err := json.Unmarshal(configBytes, &configInfo.Indexd); err != nil {
-			log.Panicf("Could not unmarshal JSON in CONFIG_FILE env variable: %s", err)
-		}
-		if configInfo.Indexd == (IndexdInfo{}) {
-			log.Panicf("Could not find required Indexd config in JSON in CONFIG_FILE env variable")
-		}
+		log.Panicf("Could not find Indexd config in JSON in CONFIG_FILE env variable. Both Indexd and Metadata Service configs are required")
 	}
-	log.Printf("Indexd config was unmarshalled")
-	if configInfo.MetadataService != (MetadataServiceInfo{}) {
-		log.Printf("Metadata Service config was unmarshalled")
-	} else {
-		log.Printf("Metadata Service config was not unmarshalled")
+
+	log.Printf("Attempting to unmarshal Metadata Service config from JSON in CONFIG_FILE env variable")
+	if err := json.Unmarshal(configBytes, configInfo); err != nil {
+		log.Panicf("Could not unmarshal JSON in CONFIG_FILE env variable: %s", err)
 	}
+	if configInfo.MetadataService == (MetadataServiceInfo{}) {
+		log.Panicf("Could not find Metadata Service config in JSON in CONFIG_FILE env variable. Both Indexd and Metadata Service configs are required")
+	}
+	log.Printf("Both Indexd and Metadata Service configs were unmarshalled")
 
 	return configInfo
 }

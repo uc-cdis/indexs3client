@@ -30,62 +30,14 @@ func TestHandler(t *testing.T) {
 
 }
 
-// Test getConfigInfo function inputting only Indexd config
-func TestGetConfigInfoUsingOnlyIndexdCreds(t *testing.T) {
+// Test getConfigInfo function inputting Indexd and Metadata Service configs
+func TestGetConfigInfoUsingIndexdAndMDSCreds(t *testing.T) {
 	jsonConfigInfo :=
 		`
 	{
 		"url": "http://indexd-service/index",
 		"username": "mr happy cat",
-		"password": "whiskers"
-	}
-	`
-	err := os.Setenv("CONFIG_FILE", jsonConfigInfo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	configInfo := getConfigInfo()
-	assert.Equal(t, configInfo.Indexd.URL, "http://indexd-service/index")
-	assert.Equal(t, configInfo.Indexd.Username, "mr happy cat")
-	assert.Equal(t, configInfo.Indexd.Password, "whiskers")
-	assert.Equal(t, configInfo.MetadataService, MetadataServiceInfo{})
-}
-
-// Test getConfigInfo function inputting only nested Indexd config
-func TestGetConfigInfoUsingOnlyNestedIndexdCreds(t *testing.T) {
-	jsonConfigInfo :=
-		`
-	{
-		"indexd": {
-			"url": "http://indexd-service/index",
-			"username": "mr happy cat",
-			"password": "whiskers"
-		}
-	}
-	`
-	err := os.Setenv("CONFIG_FILE", jsonConfigInfo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	configInfo := getConfigInfo()
-	assert.Equal(t, configInfo.Indexd.URL, "http://indexd-service/index")
-	assert.Equal(t, configInfo.Indexd.Username, "mr happy cat")
-	assert.Equal(t, configInfo.Indexd.Password, "whiskers")
-
-	assert.Equal(t, configInfo.MetadataService, MetadataServiceInfo{})
-}
-
-// Test getConfigInfo function inputting nested Indexd and Metadata Service
-// configs
-func TestGetConfigInfoUsingIndexdAndMDSCreds(t *testing.T) {
-	jsonConfigInfo :=
-		`
-	{
-		"indexd": {
-			"url": "http://indexd-service/index",
-			"username": "mr happy cat",
-			"password": "whiskers"
-		},
+		"password": "whiskers",
 		"metadataService": {
 			"url": "http://revproxy-service/mds",
 			"username": "mr friendly cat",
@@ -107,8 +59,52 @@ func TestGetConfigInfoUsingIndexdAndMDSCreds(t *testing.T) {
 	assert.Equal(t, configInfo.MetadataService.Password, "paws")
 }
 
-// Test getConfigInfo function inputting only nested Metadata Service config
-func TestGetConfigInfoUsingOnlyMDSCreds(t *testing.T) {
+// Test that getConfigInfo function panics when no Indexd or Metadata Service
+// config is present
+func TestGetConfigInfoWithoutIndexdOrMDSCreds(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Expecting getConfigInfo to panic since Indexd and Metadata Service creds were not present in CONFIG_FILE")
+		}
+	}()
+
+	jsonConfigInfo :=
+		`
+	{}
+	`
+	err := os.Setenv("CONFIG_FILE", jsonConfigInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	getConfigInfo()
+}
+
+// Test that getConfigInfo function panics when no Metadata Service config is
+// present
+func TestGetConfigInfoWithoutMDSCreds(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Expecting getConfigInfo to panic since Metadata Service creds were not present in CONFIG_FILE")
+		}
+	}()
+
+	jsonConfigInfo :=
+		`
+	{
+		"url": "http://indexd-service/index",
+		"username": "mr happy cat",
+		"password": "whiskers"
+	}
+	`
+	err := os.Setenv("CONFIG_FILE", jsonConfigInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	getConfigInfo()
+}
+
+// Test that getConfigInfo function panics when no Indexd config is present
+func TestGetConfigInfoWithoutIndexdCreds(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Errorf("Expecting getConfigInfo to panic since Indexd creds were not present in CONFIG_FILE")
@@ -137,11 +133,9 @@ func TestGetConfigInfoUsingExtraServiceInfo(t *testing.T) {
 	jsonConfigInfo :=
 		`
 	{
-		"indexd": {
-			"url": "http://indexd-service/index",
-			"username": "mr happy cat",
-			"password": "whiskers"
-		},
+		"url": "http://indexd-service/index",
+		"username": "mr happy cat",
+		"password": "whiskers",
 		"metadataService": {
 			"url": "http://revproxy-service/mds",
 			"username": "mr friendly cat",
