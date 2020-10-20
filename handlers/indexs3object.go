@@ -6,19 +6,22 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 // GetIndexdRecordRev gets record rev
 func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
-	req, err := http.NewRequest("GET", indexURL+"/"+uuid, nil)
-	client := &http.Client{}
+	req, err := retryablehttp.NewRequest("GET", indexURL+"/"+uuid, nil)
+	client := retryablehttp.NewClient()
+	client.RetryMax = MaxRetries
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("Can not get rev of the record %s. IndexURL %s. Status code: %d", uuid, indexURL, resp.StatusCode)
 	}
 
@@ -36,10 +39,10 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 	return "", nil
 }
 
-// UpdateIndexdRecord updates the record with size, urls and hashes endcoded in body
+// UpdateIndexdRecord updates the record with size, urls and hashes encoded in body
 func UpdateIndexdRecord(uuid, rev string, indexdInfo *IndexdInfo, body []byte) (*http.Response, error) {
 	endpoint := indexdInfo.URL + "/blank/" + uuid + "?rev=" + rev
-	req, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer(body))
+	req, err := retryablehttp.NewRequest("PUT", endpoint, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +50,12 @@ func UpdateIndexdRecord(uuid, rev string, indexdInfo *IndexdInfo, body []byte) (
 	req.Header.Set("Content-Type", "application/json")
 	req.SetBasicAuth(indexdInfo.Username, indexdInfo.Password)
 
-	client := &http.Client{}
-	return client.Do(req)
+	client := retryablehttp.NewClient()
+	client.RetryMax = MaxRetries
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return resp, err
 }
