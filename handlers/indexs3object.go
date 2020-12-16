@@ -76,11 +76,14 @@ func CreateBlankIndexdRecord(indexdInfo *IndexdInfo, body []byte) (*IndexdRecord
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
+
 		record := new(IndexdRecord)
 		if err := json.Unmarshal(bodyBytes, record); err != nil {
 			return nil, err
@@ -88,7 +91,7 @@ func CreateBlankIndexdRecord(indexdInfo *IndexdInfo, body []byte) (*IndexdRecord
 		return record, nil
 	}
 
-	return nil, fmt.Errorf("Problem creating blank record for %v", string(body))
+	return nil, fmt.Errorf("Problem creating blank record for %v: %v", string(body), string(bodyBytes))
 }
 
 type searchResponse []struct {
