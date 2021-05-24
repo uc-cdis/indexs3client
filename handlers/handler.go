@@ -81,7 +81,7 @@ func IndexS3Object(s3objectURL string) {
 	split_key := strings.Split(key, "/")
 	var uuid string
 	if len(split_key) > 1 {
-		uuid = split_key[0]
+		uuid = split_key[1]
 	} else {
 		uuid = strings.Join(split_key[:len(split_key)-1], "/")
 	}
