@@ -80,7 +80,7 @@ func IndexS3Object(s3objectURL string) {
 	// we want to keep the `<dataguid>/<uuid>` part
 	split_key := strings.Split(key, "/")
 	var uuid string
-	if len(split_key) == 2 {
+	if len(split_key) > 1 {
 		uuid = split_key[0]
 	} else {
 		uuid = strings.Join(split_key[:len(split_key)-1], "/")
