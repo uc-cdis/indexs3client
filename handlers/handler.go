@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -80,12 +81,15 @@ func IndexS3Object(s3objectURL string) {
 	// we want to keep the `<dataguid>/<uuid>` part
 	split_key := strings.Split(key, "/")
 	var uuid string
-	log.Printf("the length of split key is", +len(split_key))
-	if len(split_key) > 1 {
+	found, err := regexp.MatchString("[a-z]{2}\\.[a-fA-F0-9]", split_key[1])
+	if err == nil && !found {
 		uuid = split_key[1]
-	} else {
+	} else if err == nil && found {
 		uuid = strings.Join(split_key[:len(split_key)-1], "/")
+	} else {
+		log.Printf("cannot process the UUID")
 	}
+
 	filename := split_key[len(split_key)-1]
 	fileExtension := filepath.Ext(filename)
 	if len(fileExtension) > 0 {
