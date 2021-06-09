@@ -79,13 +79,17 @@ func IndexS3Object(s3objectURL string) {
 	//     <dataguid>/<uuid>/<filename>
 	//
 	// we want to keep the `<dataguid>/<uuid>` part
+	if len(key) > 0 && strings.HasPrefix(key, "/") {
+		key = strings.TrimPrefix(key, "/")
+	}
+
 	split_key := strings.Split(key, "/")
 	var uuid string
-	found, err := regexp.MatchString("[a-z]{2}\\.[a-fA-F0-9]", split_key[1])
+	found, err := regexp.MatchString("[a-z]{2}\\.[a-fA-F0-9]", split_key[0])
 	if err == nil && !found {
-		uuid = split_key[1]
+		uuid = split_key[0]
 	} else if err == nil && found {
-		uuid = strings.Join(split_key[:len(split_key)-1], "/")
+		uuid = strings.Join(split_key[:2], "/")
 	} else {
 		log.Printf("cannot process the UUID")
 	}
