@@ -85,7 +85,7 @@ func IndexS3Object(s3objectURL string) {
 
 	split_key := strings.Split(key, "/")
 	var uuid string
-	found, err := regexp.MatchString("[a-z]{2}\\.[a-fA-F0-9]", split_key[0])
+	found, err := regexp.MatchString("[a-z]{2}\\.[a-fA-F0-9]+", split_key[0])
 	if err == nil && !found {
 		uuid = split_key[0]
 	} else if err == nil && found {
