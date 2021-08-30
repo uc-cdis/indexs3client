@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	id "github.com/google/uuid"
 )
 
 // MaxRetries maximum number of retries
@@ -78,12 +80,17 @@ func IndexS3Object(s3objectURL string) {
 	//     <dataguid>/<uuid>/<filename>
 	//
 	// we want to keep the `<dataguid>/<uuid>` part
+	key = strings.Trim(key, "/")
 	split_key := strings.Split(key, "/")
 	var uuid string
-	if len(split_key) == 2 {
+	foundGUID, errGUID := id.Parse(split_key[0])
+	foundDG, errDG := id.Parse(split_key[1])
+	if errGUID == nil && len(foundGUID) > 0 {
 		uuid = split_key[0]
+	} else if errDG == nil && len(foundDG) > 0 {
+		uuid = strings.Join(split_key[:2], "/")
 	} else {
-		uuid = strings.Join(split_key[:len(split_key)-1], "/")
+		fmt.Println("cannot process the UUID")
 	}
 	filename := split_key[len(split_key)-1]
 	fileExtension := filepath.Ext(filename)
