@@ -84,12 +84,15 @@ func IndexS3Object(s3objectURL string) {
 	split_key := strings.Split(key, "/")
 	var uuid string
 	var filename string
+	// here uuid can be dg.XXXX/<uuid> or
+	// just <uuid> to distinguish between
+	// them and to keep the filename consistent
 	foundGUID, errGUID := id.Parse(split_key[0])
-	foundDG, errDG := id.Parse(split_key[1])
+	foundPrefix, errPrefix := id.Parse(split_key[1])
 	if errGUID == nil && len(foundGUID) > 0 {
 		uuid = split_key[0]
 		filename = split_key[len(split_key)-1]
-	} else if errDG == nil && len(foundDG) > 0 {
+	} else if errPrefix == nil && len(foundPrefix) > 0 {
 		uuid = strings.Join(split_key[:2], "/")
 		filename = strings.Join(split_key[2:], "/")
 	} else {
