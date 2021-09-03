@@ -191,6 +191,8 @@ func TestCreateUUID(t *testing.T) {
 		{"dg.6539/da85ab42-53a0-4698-9b38-7ad59b770b47/files/prefixtest/test16.txt", "dg.6539/da85ab42-53a0-4698-9b38-7ad59b770b47", "files/prefixtest/test16.txt"},
 		{"dg.ANV0/da85ab42-53a0-4698-9b38-7ad59b770b47/files/prefixtest/test17.txt", "dg.ANV0/da85ab42-53a0-4698-9b38-7ad59b770b47", "files/prefixtest/test17.txt"},
 		{"dg.MD1R/da85ab42-53a0-4698-9b38-7ad59b770b47/files/prefixtest/test18.txt", "dg.MD1R/da85ab42-53a0-4698-9b38-7ad59b770b47", "files/prefixtest/test18.txt"},
+		{"da85ab42-53a0-4698-9b38-7ad59b770b47/test19.txt", "da85ab42-53a0-4698-9b38-7ad59b770b47", "test19.txt"},
+		{"dg.MD1R/da85ab42-53a0-4698-9b38-7ad59b770b47/test20.txt", "dg.MD1R/da85ab42-53a0-4698-9b38-7ad59b770b47", "test20.txt"},
 	}
 
 	for _, key := range keys {
