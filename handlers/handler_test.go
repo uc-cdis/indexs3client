@@ -193,10 +193,11 @@ func TestCreateUUID(t *testing.T) {
 		{"dg.MD1R/da85ab42-53a0-4698-9b38-7ad59b770b47/files/prefixtest/test18.txt", "dg.MD1R/da85ab42-53a0-4698-9b38-7ad59b770b47", "files/prefixtest/test18.txt"},
 		{"da85ab42-53a0-4698-9b38-7ad59b770b47/test19.txt", "da85ab42-53a0-4698-9b38-7ad59b770b47", "test19.txt"},
 		{"dg.MD1R/da85ab42-53a0-4698-9b38-7ad59b770b47/test20.txt", "dg.MD1R/da85ab42-53a0-4698-9b38-7ad59b770b47", "test20.txt"},
+		{"da85ab42-53a0-4698-9b38-7ad59b770b47/files/prefixtest/test21.txt", "da85ab42-53a0-4698-9b38-7ad59b770b47", "files/prefixtest/test21.txt"},
 	}
 
 	for _, key := range keys {
-		uuid, filename, err := CreateUUID(key.key)
+		uuid, filename, err := resolveUUID(key.key)
 		if err != nil {
 			t.Fatal(err)
 		}
