@@ -140,11 +140,12 @@ func resolveUUID(key string) (string, string, error) {
 	keyParts := strings.Split(key, "/")
 	uuidIndex := -1
 	var foundUUID id.UUID
+	var err error
 	var fullUUID string
 	var filename string
 	for i, part := range keyParts {
-		foundUUID = id.Parse(part)
-		if foundUUID != id.Nil {
+		foundUUID, err = id.Parse(part)
+		if err == nil && foundUUID != id.Nil {
 			uuidIndex = i
 			break
 		}
