@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	id "github.com/google/uuid"
 )
 
 // MaxRetries maximum number of retries
@@ -78,14 +80,12 @@ func IndexS3Object(s3objectURL string) {
 	//     <dataguid>/<uuid>/<filename>
 	//
 	// we want to keep the `<dataguid>/<uuid>` part
-	split_key := strings.Split(key, "/")
-	var uuid string
-	if len(split_key) == 2 {
-		uuid = split_key[0]
-	} else {
-		uuid = strings.Join(split_key[:len(split_key)-1], "/")
+	key = strings.Trim(key, "/")
+	var uuid, filename, errUUID = resolveUUID(key)
+	if errUUID != nil {
+		log.Panicf(errUUID.Error())
 	}
-	filename := split_key[len(split_key)-1]
+
 	fileExtension := filepath.Ext(filename)
 	if len(fileExtension) > 0 {
 		fileExtension = fileExtension[1:]
@@ -134,4 +134,26 @@ func IndexS3Object(s3objectURL string) {
 	log.Printf("Updated Indexd record %s with hash info. Response Status Code: %d", uuid, resp.StatusCode)
 
 	updateMetadataObjectWrapper(uuid, configInfo, mdsUploadedBody)
+}
+
+func resolveUUID(key string) (string, string, error) {
+	keyParts := strings.Split(key, "/")
+	uuidIndex := -1
+	var foundUUID id.UUID
+	var err error
+	var fullUUID string
+	var filename string
+	for i, part := range keyParts {
+		foundUUID, err = id.Parse(part)
+		if err == nil && foundUUID != id.Nil {
+			uuidIndex = i
+			break
+		}
+	}
+	if uuidIndex == -1 {
+		return "", "", fmt.Errorf("Cannot process the UUID")
+	}
+	fullUUID = strings.Join(keyParts[:uuidIndex+1], "/")
+	filename = strings.Join(keyParts[uuidIndex+1:], "/")
+	return fullUUID, filename, nil
 }
