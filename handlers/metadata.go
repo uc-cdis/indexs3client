@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -16,13 +17,11 @@ func updateMetadataObjectWrapper(uuid string, configInfo *ConfigInfo, body strin
 		if err != nil {
 			log.Printf("Could not update object with guid %s in Metadata Service. Error: %s", uuid, err)
 		} else if resp.StatusCode != http.StatusOK {
-			log.Printf(
-				`Could not update object with guid %s in Metadata Service. Response Status Code: %d.
-				If using gen3-client, a 404 here does not necessarily indicate a problem, as we would
-				only expect there to be a corresponding object in the Metadata Service if --metadata
-				was supplied to the gen3-client upload command.`,
-				uuid,
-				resp.StatusCode)
+			logMessage := fmt.Sprintf("Could not update object with guid %s in Metadata Service. Response Status Code: %d. ", uuid, resp.StatusCode)
+			logMessage = logMessage +
+				"If using gen3-client, a 404 here does not necessarily indicate a problem, as we would " +
+				"only expect there to be a corresponding object in the Metadata Service if --metadata " +
+				"was supplied to the gen3-client upload command."
 		} else {
 			log.Printf("Updated object with guid %s in Metadata Service. Response Status Code: %d", uuid, resp.StatusCode)
 		}
