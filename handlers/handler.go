@@ -18,7 +18,7 @@ const MaxRetries = 5
 
 type ConfigInfo struct {
 	Indexd          IndexdInfo          `json:"indexd"`
-	MetadataService MetadataServiceInfo `json:"metadata_service"`
+	MetadataService MetadataServiceInfo `json:"metadataService"`
 }
 
 type IndexdInfo struct {
