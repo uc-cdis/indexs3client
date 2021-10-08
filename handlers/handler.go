@@ -17,20 +17,20 @@ import (
 const MaxRetries = 5
 
 type ConfigInfo struct {
-	Indexd          IndexdInfo          `indexd`
-	MetadataService MetadataServiceInfo `metadata_service`
+	Indexd          IndexdInfo          `json:"indexd"`
+	MetadataService MetadataServiceInfo `json:"metadata_service"`
 }
 
 type IndexdInfo struct {
-	URL      string `url`
-	Username string `username`
-	Password string `password`
+	URL      string `json:"url"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type MetadataServiceInfo struct {
-	URL      string `url`
-	Username string `username`
-	Password string `password`
+	URL      string `json:"url"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 // Read Indexd and Metadata Service config info from CONFIG_FILE into
