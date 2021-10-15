@@ -20,5 +20,6 @@ RUN GITCOMMIT=$(git rev-parse HEAD) \
     -o /indexs3client
 
 FROM scratch
+COPY --from=build-deps /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build-deps /indexs3client /indexs3client
 CMD ["/indexs3client"]
