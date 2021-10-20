@@ -1,14 +1,25 @@
-FROM quay.io/cdis/golang:1.14 as build-deps
+FROM quay.io/cdis/golang:1.17-bullseye as build-deps
 
-RUN mkdir -p /go/src/github.com/uc-cdis/indexs3client
-WORKDIR /go/src/github.com/uc-cdis/indexs3client
-ADD . .
-RUN go build -ldflags "-linkmode external -extldflags -static" -o bin/indexs3client
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
 
-# Store only the resulting binary in the final image
-# Resulting in significantly smaller docker image size
+WORKDIR $GOPATH/src/github.com/uc-cdis/indexs3client/
+
+COPY go.mod .
+COPY go.sum .
+
+RUN go mod download
+
+COPY . .
+
+RUN GITCOMMIT=$(git rev-parse HEAD) \
+    GITVERSION=$(git describe --always --tags) \
+    && go build \
+    -ldflags="-X 'github.com/uc-cdis/indexs3client/handlers/version.GitCommit=${GITCOMMIT}' -X 'github.com/uc-cdis/indexs3client/handlers/version.GitVersion=${GITVERSION}'" \
+    -o /indexs3client
+
 FROM scratch
 COPY --from=build-deps /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=build-deps /go/src/github.com/uc-cdis/indexs3client/bin/indexs3client /indexs3client
-
+COPY --from=build-deps /indexs3client /indexs3client
 CMD ["/indexs3client"]
