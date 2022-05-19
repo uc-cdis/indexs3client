@@ -93,7 +93,7 @@ func IndexS3Object(s3objectURL string) {
 
 	log.Printf("Attempting to get rev for record %s in Indexd", uuid)
 	rev, err := GetIndexdRecordRev(uuid, configInfo.Indexd.URL)
-	mdsUploadedBody := fmt.Sprintf(`{"_bucket": "%s", "_filename": "%s", "_file_extension": "%s", "_upload_status": "uploaded"}`, bucketURL, filename, fileExtension)
+	var mdsUploadedBody string = `{"_upload_status": "uploaded"}`
 	if err != nil {
 		log.Panicf("Can not get record %s from Indexd. Error message %s", uuid, err)
 	} else if rev == "" {
