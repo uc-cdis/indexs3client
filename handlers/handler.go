@@ -71,8 +71,7 @@ func IndexS3Object(s3objectURL string) {
 	if err != nil {
 		log.Panicf("Wrong url format %s\n", s3objectURL)
 	}
-	scheme, bucket, key := u.Scheme, u.Host, u.Path
-	bucketURL := fmt.Sprintf(`%s://%s`, scheme, bucket)
+	bucket, key := u.Host, u.Path
 
 	// key looks like one of these:
 	//
