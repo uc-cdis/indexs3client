@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 
 	id "github.com/google/uuid"
@@ -80,14 +79,9 @@ func IndexS3Object(s3objectURL string) {
 	//
 	// we want to keep the `<dataguid>/<uuid>` part
 	key = strings.Trim(key, "/")
-	var uuid, filename, errUUID = resolveUUID(key)
+	var uuid, errUUID = resolveUUID(key)
 	if errUUID != nil {
 		log.Panicf(errUUID.Error())
-	}
-
-	fileExtension := filepath.Ext(filename)
-	if len(fileExtension) > 0 {
-		fileExtension = fileExtension[1:]
 	}
 
 	log.Printf("Attempting to get rev for record %s in Indexd", uuid)
@@ -135,13 +129,12 @@ func IndexS3Object(s3objectURL string) {
 	updateMetadataObjectWrapper(uuid, configInfo, mdsUploadedBody)
 }
 
-func resolveUUID(key string) (string, string, error) {
+func resolveUUID(key string) (string, error) {
 	keyParts := strings.Split(key, "/")
 	uuidIndex := -1
 	var foundUUID id.UUID
 	var err error
 	var fullUUID string
-	var filename string
 	for i, part := range keyParts {
 		foundUUID, err = id.Parse(part)
 		if err == nil && foundUUID != id.Nil {
@@ -150,9 +143,8 @@ func resolveUUID(key string) (string, string, error) {
 		}
 	}
 	if uuidIndex == -1 {
-		return "", "", fmt.Errorf("Cannot process the UUID")
+		return "", fmt.Errorf("Cannot process the UUID")
 	}
 	fullUUID = strings.Join(keyParts[:uuidIndex+1], "/")
-	filename = strings.Join(keyParts[uuidIndex+1:], "/")
-	return fullUUID, filename, nil
+	return fullUUID, nil
 }

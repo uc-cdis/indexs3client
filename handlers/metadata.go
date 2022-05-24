@@ -22,7 +22,7 @@ func updateMetadataObjectWrapper(uuid string, configInfo *ConfigInfo, body strin
 				"If using gen3-client, a 404 here does not necessarily indicate a problem, as we would " +
 				"only expect there to be a corresponding object in the Metadata Service if --metadata " +
 				"was supplied to the gen3-client upload command."
-			log.Printf(logMessage)
+			log.Print(logMessage)
 		} else {
 			log.Printf("Updated object with guid %s in Metadata Service. Response Status Code: %d", uuid, resp.StatusCode)
 		}

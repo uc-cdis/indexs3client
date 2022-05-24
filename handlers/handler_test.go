@@ -197,15 +197,12 @@ func TestCreateUUID(t *testing.T) {
 	}
 
 	for _, key := range keys {
-		uuid, filename, err := resolveUUID(key.key)
+		uuid, err := resolveUUID(key.key)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if uuid != key.uuid {
 			t.Errorf("The UUID is invalid")
-		}
-		if filename != key.filename {
-			t.Errorf("The filename is invalid")
 		}
 	}
 }

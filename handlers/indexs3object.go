@@ -13,6 +13,9 @@ import (
 // GetIndexdRecordRev gets record rev
 func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 	req, err := retryablehttp.NewRequest("GET", indexURL+"/"+uuid, nil)
+	if err != nil {
+		return "", err
+	}
 	client := retryablehttp.NewClient()
 	client.RetryMax = MaxRetries
 	resp, err := client.Do(req)
@@ -29,7 +32,10 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 
 	var data interface{}
 
-	json.Unmarshal(body, &data)
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return "", err
+	}
 	rev := data.(map[string]interface{})["rev"]
 	size := data.(map[string]interface{})["size"]
 
