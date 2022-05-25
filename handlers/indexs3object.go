@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -14,7 +15,7 @@ import (
 func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 	req, err := retryablehttp.NewRequest("GET", indexURL+"/"+uuid, nil)
 	if err != nil {
-		return "", err
+		log.Printf("Error %s", err)
 	}
 	client := retryablehttp.NewClient()
 	client.RetryMax = MaxRetries
@@ -34,7 +35,7 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return "", err
+		log.Printf("Unmarshall error %s", err)
 	}
 	rev := data.(map[string]interface{})["rev"]
 	size := data.(map[string]interface{})["size"]
