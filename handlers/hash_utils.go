@@ -10,7 +10,6 @@ import (
 	"hash/crc32"
 	"io"
 	"log"
-	"sync"
 )
 
 const ChunkSize = 1024 * 1024 * 64
@@ -101,37 +100,4 @@ func UpdateBasicHashes(hashCollection *HashCollection, rd []byte) (*HashCollecti
 	_, err := multiWriter.Write(rd)
 
 	return hashCollection, err
-}
-
-type multiCWriter struct {
-	writers []io.Writer
-}
-
-func (t *multiCWriter) Write(p []byte) (n int, err error) {
-	type data struct {
-		n   int
-		err error
-	}
-
-	results := make([]data, len(t.writers))
-
-	var wg sync.WaitGroup
-	for idx, w := range t.writers {
-		wg.Add(1)
-		go func(wr io.Writer, p []byte, res *data) {
-			defer wg.Done()
-			res.n, res.err = wr.Write(p)
-			if res.n != len(p) {
-				res.err = io.ErrShortWrite
-			}
-		}(w, p, &results[idx])
-	}
-	wg.Wait()
-	for idx := range t.writers {
-		if results[idx].err != nil {
-			return results[idx].n, results[idx].err
-		}
-	}
-
-	return len(p), nil
 }
