@@ -1,5 +1,6 @@
 {
   "rules": {
-    "test-apis-dataUploadTest": ["**"]
+    "test-apis-dataUploadTest": ["**"],
+    "test-portal-indexingPageTest": ["**"]
   }
 }
