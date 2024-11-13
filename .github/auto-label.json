@@ -1,5 +1,5 @@
 {
   "rules": {
-    "test-apis-dataUploadTest": ["**"]
+    "TestDataUpload": ["**"]
   }
 }
