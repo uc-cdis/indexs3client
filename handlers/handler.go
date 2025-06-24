@@ -121,6 +121,9 @@ func IndexS3Object(s3objectURL string) {
 		updateMetadataObjectWrapper(uuid, configInfo, mdsErrorBody)
 		log.Panicf("Could not update Indexd record %s. Error: %s", uuid, err)
 	} else if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == 403 {
+			log.Printf("Possible auth issue for Indexd user %s", configInfo.Indexd.Username)
+		}
 		updateMetadataObjectWrapper(uuid, configInfo, mdsErrorBody)
 		log.Panicf("Could not update Indexd record %s. Response Status Code: %d", uuid, resp.StatusCode)
 	}
