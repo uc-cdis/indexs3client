@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
@@ -29,7 +29,7 @@ func GetIndexdRecordRev(uuid, indexURL string) (string, error) {
 		return "", fmt.Errorf("Can not get rev of the record %s. IndexURL %s. Status code: %d", uuid, indexURL, resp.StatusCode)
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 
 	var data interface{}
 
@@ -60,6 +60,9 @@ func UpdateIndexdRecord(uuid, rev string, indexdInfo *IndexdInfo, body []byte) (
 	client := retryablehttp.NewClient()
 	client.RetryMax = MaxRetries
 	resp, err := client.Do(req)
+	if resp.StatusCode == 403 {
+		log.Printf("Possible auth issue for Indexd user %s", indexdInfo.Username)
+	}
 	if err != nil {
 		return nil, err
 	}
