@@ -61,7 +61,7 @@ func UpdateIndexdRecord(uuid, rev string, indexdInfo *IndexdInfo, body []byte) (
 	client.RetryMax = MaxRetries
 	resp, err := client.Do(req)
 	if resp.StatusCode == 403 {
-		log.Printf("Possible auth issue for Indexd user %s", indexdInfo.Username)
+		log.Printf("Possible auth issue for Indexd user '%s' (basic auth)", indexdInfo.Username)
 	}
 	if err != nil {
 		return nil, err
