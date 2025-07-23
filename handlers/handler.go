@@ -81,7 +81,7 @@ func IndexS3Object(s3objectURL string) {
 	key = strings.Trim(key, "/")
 	var uuid, errUUID = resolveUUID(key)
 	if errUUID != nil {
-		log.Panicf(errUUID.Error())
+		log.Panicf("UUID error %s", errUUID.Error())
 	}
 
 	log.Printf("Attempting to get rev for record %s in Indexd", uuid)
