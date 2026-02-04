@@ -73,16 +73,16 @@ func parseGuidFromKey(key string) (string, string, bool) {
 		return "", "", false
 	}
 
-	// Case A: "<uuid>/<path...>"
-	if u, err := id.Parse(parts[0]); err == nil && u != id.Nil {
-		return parts[0], strings.Join(parts[1:], "/"), true
-	}
-
-	// Case B: "<prefix>/<uuid>/<path...>"
+	// Case A: "<prefix>/<uuid>/<path...>"
 	if len(parts) >= 3 {
 		if u, err := id.Parse(parts[1]); err == nil && u != id.Nil {
 			return parts[1], strings.Join(parts[2:], "/"), true
 		}
+	}
+
+	// Case B: "<uuid>/<path...>"
+	if u, err := id.Parse(parts[0]); err == nil && u != id.Nil {
+		return parts[0], strings.Join(parts[1:], "/"), true
 	}
 
 	return "", "", false
