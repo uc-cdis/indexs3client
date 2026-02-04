@@ -68,19 +68,19 @@ func parseGuidFromKey(key string) (string, string, bool) {
 	key = strings.Trim(key, "/")
 	parts := strings.Split(key, "/")
 
-	// Need at least "<uuid>/<file>" or "<prefix>/<uuid>/<file>"
+	// Must be at least "<uuid>/<file>" or "<prefix>/<uuid>/<file>"
 	if len(parts) < 2 {
 		return "", "", false
 	}
 
-	// Case A: "<prefix>/<uuid>/<path...>"
+	// Case B: "<prefix>/<uuid>/<path...>"
 	if len(parts) >= 3 {
 		if u, err := id.Parse(parts[1]); err == nil && u != id.Nil {
-			return parts[1], strings.Join(parts[2:], "/"), true
+			return parts[0] + "/" + parts[1], strings.Join(parts[2:], "/"), true
 		}
 	}
 
-	// Case B: "<uuid>/<path...>"
+	// Case A: "<uuid>/<path...>"
 	if u, err := id.Parse(parts[0]); err == nil && u != id.Nil {
 		return parts[0], strings.Join(parts[1:], "/"), true
 	}
@@ -104,117 +104,112 @@ func IndexS3Object(s3objectURL string) {
 	key = strings.Trim(key, "/")
 
 	// Enforce the required key formats for derived GUIDs
-	derivedGuid, derivedFilePath, matched := parseGuidFromKey(key)
+	derivedDID, derivedFilePath, matched := parseGuidFromKey(key)
 
-	var guid string
+	var did string
 	var rev string
+	var notFound bool
 
 	// If key matches "<uuid>/<path>" or "<prefix>/<uuid>/<path>":
-	// check for indexd record matching that guid.
+	// check for indexd record matching that DID.
 	if matched {
-		guid = derivedGuid
+		did = derivedDID
 
-		log.Printf("Attempting to get rev for record %s in Indexd", guid)
-		rev, err = GetIndexdRecordRev(guid, configInfo.Indexd.URL)
+		log.Printf("Attempting to get rev for record %s in Indexd", did)
+		rev, err = GetIndexdRecordRev(did, configInfo.Indexd.URL)
+
 		var mdsUploadedBody string = `{"_upload_status": "uploaded"}`
 		if err != nil {
-			// If record doesn't exist, we will create it via addEntry later (after hashing).
-			if err != ErrIndexdNotFound {
-				log.Panicf("Can not get record %s from Indexd. Error message %s", guid, err)
+			if err == ErrIndexdNotFound {
+				notFound = true
+			} else {
+				log.Panicf("Can not get record %s from Indexd. Error message %s", did, err)
 			}
 		} else if rev == "" {
 			// Existing behavior: if size != nil in Indexd, GetIndexdRecordRev returns "" and we exit.
-			log.Printf("Indexd record with guid %s already has size and hashes", guid)
-			updateMetadataObjectWrapper(guid, configInfo, mdsUploadedBody)
+			log.Printf("Indexd record with guid %s already has size and hashes", did)
+			updateMetadataObjectWrapper(did, configInfo, mdsUploadedBody)
 			return
 		} else {
-			log.Printf("Got rev %s from Indexd for record %s", rev, guid)
+			log.Printf("Got rev %s from Indexd for record %s", rev, did)
 		}
 	} else {
 		// Key doesn't match required derived-guid formats:
-		// create a blank record and use its GUID.
+		// create a blank record and use its DID.
 		log.Printf("Key does not match <uuid>/<path> or <prefix>/<uuid>/<path>. Creating blank Indexd record.")
 		out, err := CreateBlankIndexdEntry(&configInfo.Indexd)
 		if err != nil {
 			log.Panicf("Could not create blank Indexd entry. Error: %s", err)
 		}
-		guid = out.DID
-		log.Printf("Created blank Indexd record with guid %s", guid)
+		did = out.DID
+		log.Printf("Created blank Indexd record with guid %s", did)
 
-		log.Printf("Attempting to get rev for newly created blank record %s in Indexd", guid)
-		rev, err = GetIndexdRecordRev(guid, configInfo.Indexd.URL)
+		log.Printf("Attempting to get rev for newly created blank record %s in Indexd", did)
+		rev, err = GetIndexdRecordRev(did, configInfo.Indexd.URL)
 		if err != nil {
-			log.Panicf("Can not get record %s from Indexd after blank create. Error message %s", guid, err)
+			log.Panicf("Can not get record %s from Indexd after blank create. Error message %s", did, err)
 		} else if rev == "" {
-			// This should be unlikely for a newly created blank entry, but keep behavior consistent.
-			log.Printf("Indexd record with guid %s already has size and hashes (unexpected for blank create)", guid)
-			updateMetadataObjectWrapper(guid, configInfo, `{"_upload_status": "uploaded"}`)
+			// Unlikely for a newly created blank entry, but keep behavior consistent.
+			log.Printf("Indexd record with guid %s already has size and hashes (unexpected for blank create)", did)
+			updateMetadataObjectWrapper(did, configInfo, `{"_upload_status": "uploaded"}`)
 			return
 		}
-		log.Printf("Got rev %s from Indexd for record %s", rev, guid)
+		log.Printf("Got rev %s from Indexd for record %s", rev, did)
 	}
 
-	updateMetadataObjectWrapper(guid, configInfo, `{"_upload_status": "processing"}`)
+	updateMetadataObjectWrapper(did, configInfo, `{"_upload_status": "processing"}`)
 
 	var mdsUploadedBody string = `{"_upload_status": "uploaded"}`
 	var mdsErrorBody string = `{"_upload_status": "error"}`
 
 	client, err := CreateNewAwsClient()
 	if err != nil {
-		updateMetadataObjectWrapper(guid, configInfo, mdsErrorBody)
+		updateMetadataObjectWrapper(did, configInfo, mdsErrorBody)
 		log.Panicf("Can not create AWS client. Detail %s\n\n", err)
 	}
 
 	log.Printf("Start to compute hashes for %s", key)
 	hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
 	if err != nil {
-		updateMetadataObjectWrapper(guid, configInfo, mdsErrorBody)
+		updateMetadataObjectWrapper(did, configInfo, mdsErrorBody)
 		log.Panicf("Can not compute hashes for %s. Detail %s ", key, err)
 	}
 	log.Printf("Finish to compute hashes for %s", key)
 
-	// Payload for blank update (PUT /index/blank/{guid}?rev=...)
+	// Payload for blank update (PUT /index/blank/{did}?rev=...)
 	indexdHashesBody := fmt.Sprintf(
 		`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
 		objectSize, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c,
 	)
 
-	// If we matched a derived GUID but the record didn't exist, create it using addEntry.
-	// (We only know we need to do this if earlier GetIndexdRecordRev returned ErrIndexdNotFound.)
-	if matched && rev == "" {
-		// Note: rev=="" here could mean "already has size" OR "not found" OR "we never fetched rev".
-		// We only get into this block when err was ErrIndexdNotFound earlier.
-		// To avoid ambiguity, we re-check existence quickly:
-		_, err := GetIndexdRecordRev(guid, configInfo.Indexd.URL)
-		if err == ErrIndexdNotFound {
-			log.Printf("Indexd record %s does not exist; creating via addEntry with derived guid", guid)
+	// If we matched a derived DID but the record didn't exist, create it using addEntry.
+	if matched && notFound {
+		log.Printf("Indexd record %s does not exist; creating via addEntry with derived guid", did)
 
-			addReq := &IndexdAddEntryRequest{
-				DID:      guid,
-				Form:     "object",
-				Size:     objectSize,
-				URLs:     []string{s3objectURL},
-				Hashes: map[string]string{
-					"md5":    hashes.Md5,
-					"sha1":   hashes.Sha1,
-					"sha256": hashes.Sha256,
-					"sha512": hashes.Sha512,
-					"crc":    hashes.Crc32c,
-				},
-				FileName: derivedFilePath,
-			}
-
-			_, err := AddIndexdEntry(&configInfo.Indexd, addReq)
-			if err != nil {
-				updateMetadataObjectWrapper(guid, configInfo, mdsErrorBody)
-				log.Panicf("Could not create Indexd record %s via addEntry. Error: %s", guid, err)
-			}
-
-			log.Printf("Created Indexd record %s via addEntry", guid)
-			updateMetadataObjectWrapper(guid, configInfo, mdsUploadedBody)
-			return
+		addReq := &IndexdAddEntryRequest{
+			DID:  did,
+			Form: "object",
+			Size: objectSize,
+			URLs: []string{s3objectURL},
+			Hashes: map[string]string{
+				"md5":    hashes.Md5,
+				"sha1":   hashes.Sha1,
+				"sha256": hashes.Sha256,
+				"sha512": hashes.Sha512,
+				"crc":    hashes.Crc32c,
+			},
+			FileName: derivedFilePath,
 		}
-		// If it exists, fall through to normal blank update if we have rev (below).
+
+		_, err := AddIndexdEntry(&configInfo.Indexd, addReq)
+		if err != nil {
+			updateMetadataObjectWrapper(did, configInfo, mdsErrorBody)
+			log.Panicf("Could not create Indexd record %s via addEntry. Error: %s", did, err)
+		}
+
+		log.Printf("Created Indexd record %s via addEntry", did)
+		updateMetadataObjectWrapper(did, configInfo, mdsUploadedBody)
+		return
 	}
 
 	// If we matched derived guid and we had a blank record, rev was set earlier.
@@ -223,21 +218,21 @@ func IndexS3Object(s3objectURL string) {
 		// If we get here, it means we don't have a rev but also didn't take the addEntry path.
 		// That generally means the record already had size/hashes (handled earlier) OR something unexpected.
 		// Be conservative and stop to avoid writing to the wrong endpoint.
-		log.Printf("No rev available for guid %s; skipping blank update.", guid)
-		updateMetadataObjectWrapper(guid, configInfo, mdsUploadedBody)
+		log.Printf("No rev available for guid %s; skipping blank update.", did)
+		updateMetadataObjectWrapper(did, configInfo, mdsUploadedBody)
 		return
 	}
 
-	log.Printf("Attempting to update Indexd record %s. Request Body: %s", guid, indexdHashesBody)
-	resp, err := UpdateIndexdRecord(guid, rev, &configInfo.Indexd, []byte(indexdHashesBody))
+	log.Printf("Attempting to update Indexd record %s. Request Body: %s", did, indexdHashesBody)
+	resp, err := UpdateIndexdRecord(did, rev, &configInfo.Indexd, []byte(indexdHashesBody))
 	if err != nil {
-		updateMetadataObjectWrapper(guid, configInfo, mdsErrorBody)
-		log.Panicf("Could not update Indexd record %s. Error: %s", guid, err)
+		updateMetadataObjectWrapper(did, configInfo, mdsErrorBody)
+		log.Panicf("Could not update Indexd record %s. Error: %s", did, err)
 	} else if resp.StatusCode != http.StatusOK {
-		updateMetadataObjectWrapper(guid, configInfo, mdsErrorBody)
-		log.Panicf("Could not update Indexd record %s. Response Status Code: %d", guid, resp.StatusCode)
+		updateMetadataObjectWrapper(did, configInfo, mdsErrorBody)
+		log.Panicf("Could not update Indexd record %s. Response Status Code: %d", did, resp.StatusCode)
 	}
-	log.Printf("Updated Indexd record %s with hash info. Response Status Code: %d", guid, resp.StatusCode)
+	log.Printf("Updated Indexd record %s with hash info. Response Status Code: %d", did, resp.StatusCode)
 
-	updateMetadataObjectWrapper(guid, configInfo, mdsUploadedBody)
+	updateMetadataObjectWrapper(did, configInfo, mdsUploadedBody)
 }
