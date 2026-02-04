@@ -38,7 +38,7 @@ func CreateNewAwsClient() (*AwsClient, error) {
 	}
 
 	// Custom S3 endpoint (MinIO, LocalStack, Ceph, etc.)
-	if endpoint := os.Getenv("AWS_S3_ENDPOINT"); endpoint != "" {
+	if endpoint := os.Getenv("AWS_ENDPOINT_URL_S3"); endpoint != "" {
 		cfg.Endpoint = aws.String(endpoint)
 
 		// Almost always required for S3-compatible APIs
