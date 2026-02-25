@@ -59,9 +59,38 @@ func getConfigInfo() *ConfigInfo {
 	return configInfo
 }
 
-// IndexS3Object indexes s3 object The fuction does several things. It
-// downloads the object from S3, computes size and hashes, and updates Indexd
-// and potentially Metadata Service
+// parseGuidFromKey enforces that key is either:
+//   - <uuid>/<path to file...>
+//   - <prefix>/<uuid>/<path to file...>
+//
+// It returns (guid, filePath, matched).
+func parseGuidFromKey(key string) (string, string, bool) {
+	key = strings.Trim(key, "/")
+	parts := strings.Split(key, "/")
+
+	// Must be at least "<uuid>/<file>" or "<prefix>/<uuid>/<file>"
+	if len(parts) < 2 {
+		return "", "", false
+	}
+
+	// Case B: "<prefix>/<uuid>/<path...>"
+	if len(parts) >= 3 {
+		if u, err := id.Parse(parts[1]); err == nil && u != id.Nil {
+			return parts[0] + "/" + parts[1], strings.Join(parts[2:], "/"), true
+		}
+	}
+
+	// Case A: "<uuid>/<path...>"
+	if u, err := id.Parse(parts[0]); err == nil && u != id.Nil {
+		return parts[0], strings.Join(parts[1:], "/"), true
+	}
+
+	return "", "", false
+}
+
+// IndexS3Object indexes s3 object. The function does several things:
+// it downloads the object from S3, computes size and hashes, and updates Indexd
+// and potentially Metadata Service.
 func IndexS3Object(s3objectURL string) {
 	configInfo := getConfigInfo()
 
@@ -72,79 +101,138 @@ func IndexS3Object(s3objectURL string) {
 	}
 	bucket, key := u.Host, u.Path
 
-	// key looks like one of these:
-	//
-	//     <uuid>/<filename>
-	//     <dataguid>/<uuid>/<filename>
-	//
-	// we want to keep the `<dataguid>/<uuid>` part
 	key = strings.Trim(key, "/")
-	var uuid, errUUID = resolveUUID(key)
-	if errUUID != nil {
-		log.Panicf("UUID error %s", errUUID.Error())
+
+	// Enforce the required key formats for derived GUIDs
+	derivedDID, derivedFilePath, matched := parseGuidFromKey(key)
+
+	var did string
+	var rev string
+	var notFound bool
+
+	// If key matches "<uuid>/<path>" or "<prefix>/<uuid>/<path>":
+	// check for indexd record matching that DID.
+	if matched {
+		did = derivedDID
+
+		log.Printf("Attempting to get rev for record %s in Indexd", did)
+		rev, err = GetIndexdRecordRev(did, configInfo.Indexd.URL)
+
+		var mdsUploadedBody string = `{"_upload_status": "uploaded"}`
+		if err != nil {
+			if err == ErrIndexdNotFound {
+				notFound = true
+			} else {
+				log.Panicf("Can not get record %s from Indexd. Error message %s", did, err)
+			}
+		} else if rev == "" {
+			// Existing behavior: if size != nil in Indexd, GetIndexdRecordRev returns "" and we exit.
+			log.Printf("Indexd record with guid %s already has size and hashes", did)
+			updateMetadataObjectWrapper(did, configInfo, mdsUploadedBody)
+			return
+		} else {
+			log.Printf("Got rev %s from Indexd for record %s", rev, did)
+		}
+	} else {
+		// Key doesn't match required derived-guid formats:
+		// create a blank record and use its DID.
+		log.Printf("Key does not match <uuid>/<path> or <prefix>/<uuid>/<path>. Creating blank Indexd record.")
+		out, err := CreateBlankIndexdEntry(&configInfo.Indexd)
+		if err != nil {
+			log.Panicf("Could not create blank Indexd entry. Error: %s", err)
+		}
+		did = out.DID
+		log.Printf("Created blank Indexd record with guid %s", did)
+
+		log.Printf("Attempting to get rev for newly created blank record %s in Indexd", did)
+		rev, err = GetIndexdRecordRev(did, configInfo.Indexd.URL)
+		if err != nil {
+			log.Panicf("Can not get record %s from Indexd after blank create. Error message %s", did, err)
+		} else if rev == "" {
+			// Unlikely for a newly created blank entry, but keep behavior consistent.
+			log.Printf("Indexd record with guid %s already has size and hashes (unexpected for blank create)", did)
+			updateMetadataObjectWrapper(did, configInfo, `{"_upload_status": "uploaded"}`)
+			return
+		}
+		log.Printf("Got rev %s from Indexd for record %s", rev, did)
 	}
 
-	log.Printf("Attempting to get rev for record %s in Indexd", uuid)
-	rev, err := GetIndexdRecordRev(uuid, configInfo.Indexd.URL)
+	updateMetadataObjectWrapper(did, configInfo, `{"_upload_status": "processing"}`)
+
 	var mdsUploadedBody string = `{"_upload_status": "uploaded"}`
-	if err != nil {
-		log.Panicf("Can not get record %s from Indexd. Error message %s", uuid, err)
-	} else if rev == "" {
-		log.Printf("Indexd record with guid %s already has size and hashes", uuid)
-		updateMetadataObjectWrapper(uuid, configInfo, mdsUploadedBody)
-		return
-	}
-	log.Printf("Got rev %s from Indexd for record %s", rev, uuid)
-
-	updateMetadataObjectWrapper(uuid, configInfo, `{"_upload_status": "processing"}`)
-
 	var mdsErrorBody string = `{"_upload_status": "error"}`
+
 	client, err := CreateNewAwsClient()
 	if err != nil {
-		updateMetadataObjectWrapper(uuid, configInfo, mdsErrorBody)
+		updateMetadataObjectWrapper(did, configInfo, mdsErrorBody)
 		log.Panicf("Can not create AWS client. Detail %s\n\n", err)
 	}
 
 	log.Printf("Start to compute hashes for %s", key)
 	hashes, objectSize, err := CalculateBasicHashes(client, bucket, key)
 	if err != nil {
-		updateMetadataObjectWrapper(uuid, configInfo, mdsErrorBody)
+		updateMetadataObjectWrapper(did, configInfo, mdsErrorBody)
 		log.Panicf("Can not compute hashes for %s. Detail %s ", key, err)
 	}
 	log.Printf("Finish to compute hashes for %s", key)
 
-	indexdHashesBody := fmt.Sprintf(`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
-		objectSize, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c)
-	log.Printf("Attempting to update Indexd record %s. Request Body: %s", uuid, indexdHashesBody)
-	resp, err := UpdateIndexdRecord(uuid, rev, &configInfo.Indexd, []byte(indexdHashesBody))
-	if err != nil {
-		updateMetadataObjectWrapper(uuid, configInfo, mdsErrorBody)
-		log.Panicf("Could not update Indexd record %s. Error: %s", uuid, err)
-	} else if resp.StatusCode != http.StatusOK {
-		updateMetadataObjectWrapper(uuid, configInfo, mdsErrorBody)
-		log.Panicf("Could not update Indexd record %s. Response Status Code: %d", uuid, resp.StatusCode)
-	}
-	log.Printf("Updated Indexd record %s with hash info. Response Status Code: %d", uuid, resp.StatusCode)
+	// Payload for blank update (PUT /index/blank/{did}?rev=...)
+	indexdHashesBody := fmt.Sprintf(
+		`{"size": %d, "urls": ["%s"], "hashes": {"md5": "%s", "sha1":"%s", "sha256": "%s", "sha512": "%s", "crc": "%s"}}`,
+		objectSize, s3objectURL, hashes.Md5, hashes.Sha1, hashes.Sha256, hashes.Sha512, hashes.Crc32c,
+	)
 
-	updateMetadataObjectWrapper(uuid, configInfo, mdsUploadedBody)
-}
+	// If we matched a derived DID but the record didn't exist, create it using addEntry.
+	if matched && notFound {
+		log.Printf("Indexd record %s does not exist; creating via addEntry with derived guid", did)
 
-func resolveUUID(key string) (string, error) {
-	keyParts := strings.Split(key, "/")
-	uuidIndex := -1
-	var foundUUID id.UUID
-	var err error
-	var fullUUID string
-	for i, part := range keyParts {
-		foundUUID, err = id.Parse(part)
-		if err == nil && foundUUID != id.Nil {
-			uuidIndex = i
-			break
+		addReq := &IndexdAddEntryRequest{
+			DID:  did,
+			Form: "object",
+			Size: objectSize,
+			URLs: []string{s3objectURL},
+			Hashes: map[string]string{
+				"md5":    hashes.Md5,
+				"sha1":   hashes.Sha1,
+				"sha256": hashes.Sha256,
+				"sha512": hashes.Sha512,
+				"crc":    hashes.Crc32c,
+			},
+			FileName: derivedFilePath,
 		}
+
+		_, err := AddIndexdEntry(&configInfo.Indexd, addReq)
+		if err != nil {
+			updateMetadataObjectWrapper(did, configInfo, mdsErrorBody)
+			log.Panicf("Could not create Indexd record %s via addEntry. Error: %s", did, err)
+		}
+
+		log.Printf("Created Indexd record %s via addEntry", did)
+		updateMetadataObjectWrapper(did, configInfo, mdsUploadedBody)
+		return
 	}
-	if uuidIndex == -1 {
-		return "", fmt.Errorf("Cannot process the UUID")
+
+	// If we matched derived guid and we had a blank record, rev was set earlier.
+	// If we created blank guid (non-matching key), rev was also set earlier.
+	if rev == "" {
+		// If we get here, it means we don't have a rev but also didn't take the addEntry path.
+		// That generally means the record already had size/hashes (handled earlier) OR something unexpected.
+		// Be conservative and stop to avoid writing to the wrong endpoint.
+		log.Printf("No rev available for guid %s; skipping blank update.", did)
+		updateMetadataObjectWrapper(did, configInfo, mdsUploadedBody)
+		return
 	}
-	fullUUID = strings.Join(keyParts[:uuidIndex+1], "/")
-	return fullUUID, nil
+
+	log.Printf("Attempting to update Indexd record %s. Request Body: %s", did, indexdHashesBody)
+	resp, err := UpdateIndexdRecord(did, rev, &configInfo.Indexd, []byte(indexdHashesBody))
+	if err != nil {
+		updateMetadataObjectWrapper(did, configInfo, mdsErrorBody)
+		log.Panicf("Could not update Indexd record %s. Error: %s", did, err)
+	} else if resp.StatusCode != http.StatusOK {
+		updateMetadataObjectWrapper(did, configInfo, mdsErrorBody)
+		log.Panicf("Could not update Indexd record %s. Response Status Code: %d", did, resp.StatusCode)
+	}
+	log.Printf("Updated Indexd record %s with hash info. Response Status Code: %d", did, resp.StatusCode)
+
+	updateMetadataObjectWrapper(did, configInfo, mdsUploadedBody)
 }
